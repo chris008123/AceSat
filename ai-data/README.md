@@ -52,7 +52,7 @@ ai_data/
 └── tests/
 ```
 
-## What's implemented in this pass (Phases 1–2 of the roadmap)
+## What's implemented in this pass (Phases 1–5 of the roadmap)
 
 - **Phase 1 — Data Models**: `Student`/`Question`/`Assessment`/`Response`
   Pydantic models, `TopicMastery` (Pydantic + SQLAlchemy table),
@@ -62,13 +62,24 @@ ai_data/
   `identify_strong_topics`, `calculate_performance_trend`,
   `estimate_learning_progress` — all pure functions over the Phase 1 models,
   unit tested with realistic data.
+- **Phase 3 — Student Profile**: `generate_student_profile()` composes
+  Phase 1/2 output into a `StudentLearningProfile`.
+- **Phase 4 — AI Context Builder**: `build_student_context()` produces the
+  `StudentContext` payload agent prompts consume.
+- **Phase 5 — Memory**: `InMemoryShortTermStore` (session-scoped, no DB) +
+  `SQLAlchemyLongTermMemoryRepository` (concrete implementation against
+  this module's own `ai_memory` table, self-contained via `models/db.py` —
+  works today against a local SQLite fallback, or the shared Postgres
+  instance once `AI_DATA_DATABASE_URL` is set). `MemoryService` combines
+  both into the single interface the Context Builder/agents should use.
+
+All 19 tests pass, including the memory service against a real (SQLite)
+database, and the SQLAlchemy models verified to compile correct DDL against
+the Postgres dialect specifically (native `UUID`/`JSONB`, not just
+SQLite-compatible types).
 
 ## Not yet built (next stages, in roadmap order)
 
-- Phase 3 — Student profile generator service (`student_profile.py` stub only)
-- Phase 4 — AI Context Builder (produces the `student_context` dict the AI
-  Agent Engineer's prompts consume)
-- Phase 5 — Short-term/long-term Memory service + retrieval
 - Phase 6 — Knowledge base structure for SAT content
 - Phase 7 — pgvector retrieval (optional, MVP can ship without it)
 - Phase 8 — Full evaluation dataset (one scenario stubbed as a template)
@@ -78,9 +89,13 @@ ai_data/
 - **Backend Engineer**: needs to confirm the boundary above, expose a
   repository/query layer (or direct DB session) so `services/` can read
   `assessments`/`answers`/`questions`/`student_profiles` without this module
-  owning those tables; needs to run the migration for `topic_mastery`,
-  `ai_memory`, `ai_logs`.
-- **AI Agent Engineer**: consumes `StudentContext` (Phase 4, pending) as the
+  owning those tables. Migration for `topic_mastery`, `ai_memory`, `ai_logs`
+  is no longer blocking — this module runs its own local database via
+  `models/db.py` (`AI_DATA_DATABASE_URL` env var, defaults to a local
+  SQLite file) until the shared Postgres instance is ready; point that env
+  var at it whenever it exists, or swap the `Session` at that point.
+- **AI Agent Engineer**: consumes `StudentContext` (Phase 4, done) as the
   input to Diagnostic/Planning/Coaching agent prompts, and
-  `RecommendationContext` (pending) for the "reason" field the prompt
-  strategy doc requires on every recommendation.
+  `Recommendation` (done) for the "reason" field the prompt strategy doc
+  requires on every recommendation. `MemoryService.recall()` is the
+  intended way for an agent to pull scoped historical context mid-prompt.
