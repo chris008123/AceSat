@@ -1,0 +1,16 @@
+{
+  "scenario": "Student with weak reading inference",
+  "student_state": {
+    "target_score": 1450,
+    "current_score": 1080,
+    "topic_accuracy": {
+      "Reading Inference": 0.45,
+      "Vocabulary": 0.82,
+      "Grammar": 0.78
+    },
+    "recent_trend": "declining"
+  },
+  "expected_weakness": "Reading Inference",
+  "expected_recommendation_action": "review_concept",
+  "expected_learning_strategy": "Increase inference practice with explicit evidence-to-conclusion exercises before advancing difficulty."
+}
