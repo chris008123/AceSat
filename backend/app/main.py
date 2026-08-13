@@ -14,8 +14,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes import ai_router, assessment_router, auth_router, students_router
 from app.config.settings import settings
 from app.database.connection import init_db
+from app.utils.errors import APIError, api_error_handler
 
 
 @asynccontextmanager
@@ -37,6 +39,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_exception_handler(APIError, api_error_handler)
+
+app.include_router(auth_router)
+app.include_router(students_router)
+app.include_router(assessment_router)
+app.include_router(ai_router)
 
 
 @app.get("/health")

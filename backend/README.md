@@ -43,16 +43,58 @@ frontend changes.
 - Phase 1's three tables per `Development_roadmap.txt`: `User`,
   `StudentProfile`, `Question` (`app/models/`).
 - Alembic scaffolding wired to merge this backend's + ai-data's metadata.
-- 4/4 tests passing (health check + model creation/relationships).
 
-**Not yet built** (`Development_roadmap.txt` Phase 2 — Core Backend):
-- Auth (registration, login, JWT) — `app/api/routes/auth.py`,
-  `app/services/auth_service.py`.
-- Student profile CRUD — `app/api/routes/students.py`.
-- Assessment engine (`assessments`/`answers` tables, question retrieval,
-  scoring) — `app/api/routes/assessment.py`.
-- `study_plans`, `learning_sessions` tables.
-- The `ai` route bridging into `ai-data` (see above).
+**Phase 2 (Core Backend) — done.**
+- Auth: `POST /auth/register`, `POST /auth/login` — JWT + bcrypt password
+  hashing (`app/services/security.py`, `app/services/auth_service.py`).
+  Uses `bcrypt` directly rather than through `passlib`, which has a known
+  incompatibility with `bcrypt>=4.1`.
+- Student profile: `POST`/`GET`/`PUT /students/profile`
+  (`app/services/student_service.py`).
+- Assessment engine: `Assessment`/`Answer` models
+  (`app/models/assessment.py`), `POST /assessment/start` (now picks a
+  **subject-balanced** spread of questions rather than the first N rows —
+  an uneven question bank could otherwise starve entire subjects out of
+  the diagnostic entirely), `POST /assessment/answer`,
+  `POST /assessment/complete` with real scoring
+  (`app/services/assessment_service.py`).
+- Standard `{"success": false, "error": {...}}` error format as an actual
+  FastAPI exception handler (`app/utils/errors.py`), not just documented.
+- `get_current_user` bearer-token dependency (`app/api/dependencies.py`)
+  used by every protected route.
+
+**Phase 3 (AI Integration, via the ai-data bridge) — done.**
+- `app/services/ai_bridge.py` translates this backend's `Answer`/
+  `Question` rows into `ai-data`'s `QuestionResponse` models and calls
+  straight into `ai-data`'s `identify_weak_topics`,
+  `identify_strong_topics`, `generate_topic_recommendations`, and
+  `ai_data.knowledge` — the stand-in described above.
+- `POST /ai/diagnose`, `POST /ai/study-plan` (persists to the new
+  `StudyPlan`/`study_plans` table), `POST /ai/coach` (a deterministic
+  stand-in — pulls the student's weakest topic's stored explanation, not
+  an LLM-backed coach).
+
+Verified end-to-end via `TestClient`: register → login → create profile →
+run a full assessment → get a real, evidence-based diagnosis → get a
+persisted study plan. **20/20 tests pass** (`app/tests/`), covering auth,
+student profile, the assessment flow (including the subject-balancing
+fix), and the AI bridge — respecting ai-data's evidence thresholds (a
+diagnosis only fires once there's actually enough data).
+
+**Not yet built:**
+- `learning_sessions`, `progress_records` tables and the
+  `GET /progress/dashboard`, `GET /progress/report` endpoints
+  (`Api_design.txt` §10).
+- Memory API endpoints (`POST /memory/update`, `GET /memory/student/{id}`
+  per `Api_design.txt` §11) — should be thin wrappers around ai-data's
+  `MemoryService`, not new logic.
+- Background tasks (progress analysis, daily plan generation —
+  `Backend_architecture.txt` §11).
+- An actual `alembic revision --autogenerate` generated and applied
+  against a real Postgres instance — the merge logic in `alembic/env.py`
+  is verified to produce the right merged metadata, but no migration has
+  been run against real Postgres yet (only SQLite, for local dev/tests).
+- Rate limiting, and any validation beyond Pydantic's defaults.
 
 ## Running locally
 

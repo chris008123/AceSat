@@ -10,7 +10,7 @@ dependencies = [
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
     "python-jose[cryptography]>=3.3",
-    "passlib[bcrypt]>=1.7",
+    "bcrypt>=4.0",
     "alembic>=1.13",
     # Local dependency on the ai-data module (see project README for the
     # boundary between this backend and ai-data's tables/services).
