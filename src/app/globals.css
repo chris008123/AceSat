@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+@import "tailwindcss";
+
+:root{
+  /* font stacks — loaded via runtime @import above (browser fetches this,
+     not the Next.js build step, so this works in network-restricted CI too) */
+  --font-fraunces: "Fraunces", serif;
+  --font-inter: "Inter", sans-serif;
+  --font-plex-mono: "IBM Plex Mono", monospace;
+
+  /* ---- core palette ---- */
+  --ink:#182338;
+  --ink-soft:#5B6580;
+  --paper:#F6F7FB;
+  --paper-raised:#FFFFFF;
+  --line:#E4E7F0;
+
+  /* ---- primary (interactive / active states) ---- */
+  --primary:#1E9E64;
+  --primary-dim:#E4F5EC;
+  --primary-deep:#157A4C;
+
+  /* ---- accent (achievement / streaks only) ---- */
+  --gold:#F0AC3F;
+  --gold-dim:#FCF0DA;
+
+  /* ---- warm (incorrect / tough-session register, never alarm-red) ---- */
+  --warm:#D97B3F;
+  --warm-dim:#FCEFE2;
+  --warm-deep:#B15F2A;
+
+  /* ---- radii ---- */
+  --radius-lg:22px;
+  --radius-md:14px;
+  --radius-sm:9px;
+
+  /* ---- shadow ---- */
+  --shadow: 0 1px 2px rgba(24,35,56,.04), 0 8px 24px -12px rgba(24,35,56,.14);
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-line: var(--line);
+
+  --color-primary: var(--primary);
+  --color-primary-dim: var(--primary-dim);
+  --color-primary-deep: var(--primary-deep);
+
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+
+  --color-warm: var(--warm);
+  --color-warm-dim: var(--warm-dim);
+  --color-warm-deep: var(--warm-deep);
+
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-plex-mono);
+
+  --radius-lg: var(--radius-lg);
+  --radius-md: var(--radius-md);
+  --radius-sm: var(--radius-sm);
+}
+
+html, body{
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-inter), sans-serif;
+}
+
+/* ---------------- shared component classes ---------------- */
+/* These mirror the approved HTML prototype 1:1 so design stays consistent
+   as screens get rebuilt as React components. */
+
+.font-display{ font-family: var(--font-fraunces), serif; }
+.font-mono{ font-family: var(--font-plex-mono), monospace; }
+
+.card{
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.btn-primary{
+  width: 100%;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 14px;
+  cursor: pointer;
+  transition: background .15s ease, opacity .15s ease, transform .1s ease;
+}
+.btn-primary:hover{ background: var(--primary-deep); }
+.btn-primary:active{ transform: scale(.985); }
+.btn-primary:disabled{ opacity: .4; cursor: not-allowed; }
+
+.btn-secondary{
+  width: 100%;
+  background: transparent;
+  color: var(--ink-soft);
+  border: none;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.eyebrow{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--primary-deep);
+  background: var(--primary-dim);
+  padding: 5px 10px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.pill-mono{
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 11px;
+  color: var(--primary-deep);
+  background: var(--primary-dim);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
