@@ -1,0 +1,27 @@
+[project]
+name = "acementor-backend"
+version = "0.1.0"
+description = "AceMentor AI — Backend (FastAPI)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "sqlalchemy>=2.0",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "python-jose[cryptography]>=3.3",
+    "passlib[bcrypt]>=1.7",
+    "alembic>=1.13",
+    # Local dependency on the ai-data module (see project README for the
+    # boundary between this backend and ai-data's tables/services).
+    # Expects ai-data/ as a sibling directory — adjust the path if the
+    # monorepo layout differs (Deployment_architecture.txt §7 puts both
+    # under one repo root: backend/ and ai-data/ as siblings).
+    "ai-data @ file://../ai-data",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "httpx>=0.27"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
