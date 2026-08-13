@@ -52,7 +52,7 @@ ai_data/
 └── tests/
 ```
 
-## What's implemented in this pass (Phases 1–5 of the roadmap)
+## What's implemented (all 8 phases of the roadmap)
 
 - **Phase 1 — Data Models**: `Student`/`Question`/`Assessment`/`Response`
   Pydantic models, `TopicMastery` (Pydantic + SQLAlchemy table),
@@ -72,17 +72,48 @@ ai_data/
   works today against a local SQLite fallback, or the shared Postgres
   instance once `AI_DATA_DATABASE_URL` is set). `MemoryService` combines
   both into the single interface the Context Builder/agents should use.
+- **Phase 6 — Knowledge Base**: `Concept`/`ConceptExample` models, 3 sample
+  concepts (Reading Inference, Linear Equations, Grammar), and
+  `get_concepts_for_topic()` — looks up directly by the same topic strings
+  the performance engine produces, so a weak topic resolves to teaching
+  material with no translation layer.
+- **Phase 7 — Retrieval** (opt-in, isolated in `retrieval/`):
+  `EmbeddingProvider` protocol with a dependency-free
+  `DeterministicEmbeddingProvider` (tests/local dev) and a
+  `GoogleEmbeddingProvider` stub for production; `VectorSearchService`
+  does cosine-similarity search over concept text, stored as a portable
+  JSON array — no `pgvector` Postgres extension required. Nothing outside
+  `retrieval/` depends on it, so it can be deleted if the MVP doesn't need
+  semantic search.
+- **Phase 8 — Evaluation**: all 5 scenarios from the hackathon prompt
+  (weak algebra, weak reading inference, improving rapidly, inconsistent
+  performance, repeated mistake) as data files, each verified against the
+  real analyzer/recommendation code before being committed. `evaluator.py`
+  synthesizes responses from each scenario and checks
+  `identify_weak_topics()` / `generate_topic_recommendations()` produce
+  the expected outcome — one parametrized test per scenario.
 
-All 19 tests pass, including the memory service against a real (SQLite)
-database, and the SQLAlchemy models verified to compile correct DDL against
-the Postgres dialect specifically (native `UUID`/`JSONB`, not just
-SQLite-compatible types).
+All 31 tests pass, including the memory service and vector search against
+a real (SQLite) database, and the SQLAlchemy models verified to compile
+correct DDL against the Postgres dialect specifically (native
+`UUID`/`JSONB`, not just SQLite-compatible types).
 
-## Not yet built (next stages, in roadmap order)
+## Definition of Done — status
 
-- Phase 6 — Knowledge base structure for SAT content
-- Phase 7 — pgvector retrieval (optional, MVP can ship without it)
-- Phase 8 — Full evaluation dataset (one scenario stubbed as a template)
+- [x] Student learning profiles can be generated.
+- [x] Assessment results can be analyzed.
+- [x] Weak and strong topics can be identified.
+- [x] Topic mastery can be calculated.
+- [x] Performance trends can be calculated.
+- [x] Relevant student context can be generated.
+- [x] AI memory can retrieve relevant history.
+- [x] Recommendations have explainable reasons.
+- [ ] The AI Agent Engineer can consume structured student context —
+      interfaces (`StudentContext`, `Recommendation`) are ready; actual
+      consumption depends on the AI Agent Engineer's code.
+- [ ] The Backend Engineer can integrate the data layer — interfaces are
+      ready; needs the boundary/session decisions in the section above.
+- [x] Automated tests cover the critical logic.
 
 ## Dependencies on other roles
 

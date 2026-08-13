@@ -1,0 +1,15 @@
+{
+  "scenario": "Student who repeatedly makes the same mistake",
+  "target_score": 1300,
+  "current_score": 980,
+  "topics": {
+    "Comma Splices": {
+      "subject": "writing",
+      "difficulty": 2,
+      "correct_sequence": [false, false, true, false, false, false, true, false, false, false]
+    }
+  },
+  "expected_weakness": "Comma Splices",
+  "expected_recommendation_action": "review_concept",
+  "expected_learning_strategy": "Low, flat accuracy with no improvement points to a specific misconception about dependent clauses rather than carelessness — walk through the rule directly rather than assigning more timed practice."
+}

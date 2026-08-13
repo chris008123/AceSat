@@ -1,0 +1,15 @@
+{
+  "scenario": "Student improving rapidly",
+  "target_score": 1380,
+  "current_score": 1150,
+  "topics": {
+    "Vocabulary in Context": {
+      "subject": "reading",
+      "difficulty": 2,
+      "correct_sequence": [true, true, true, true, true, true, false, true, false, true, true, true, true, true]
+    }
+  },
+  "expected_weakness": null,
+  "expected_recommendation_action": "increase_difficulty",
+  "expected_learning_strategy": "Move to harder vocabulary-in-context questions since recent accuracy has reached ceiling on the current difficulty band."
+}

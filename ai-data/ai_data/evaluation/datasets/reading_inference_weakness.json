@@ -1,14 +1,13 @@
 {
   "scenario": "Student with weak reading inference",
-  "student_state": {
-    "target_score": 1450,
-    "current_score": 1080,
-    "topic_accuracy": {
-      "Reading Inference": 0.45,
-      "Vocabulary": 0.82,
-      "Grammar": 0.78
-    },
-    "recent_trend": "declining"
+  "target_score": 1450,
+  "current_score": 1080,
+  "topics": {
+    "Reading Inference": {
+      "subject": "reading",
+      "difficulty": 3,
+      "correct_sequence": [true, true, false, false, true, false, true, true, false, true, false, true, false, false, true]
+    }
   },
   "expected_weakness": "Reading Inference",
   "expected_recommendation_action": "review_concept",

@@ -1,0 +1,53 @@
+[
+  {
+    "concept_id": "1a2281bd-a8bb-4fb4-9e2f-c470a76aba59",
+    "subject": "reading",
+    "domain": "Craft and Structure",
+    "topic": "Reading Inference",
+    "subtopic": "Evidence-to-conclusion reasoning",
+    "difficulty": 3,
+    "explanation": "Inference questions ask what a passage implies without stating it outright. Do not guess based on outside knowledge or what seems plausible in general \u2014 the correct answer must be directly supported by specific words or sentences in the passage. Underline the sentence(s) that most closely relate to the question before choosing an answer.",
+    "examples": [
+      {
+        "prompt": "The passage states the scientist \"hesitated before publishing, aware her data contradicted a decade of prior findings.\" What can be inferred about the scientist?",
+        "solution": "She had genuine confidence in her data despite social/professional risk \u2014 supported directly by \"aware her data contradicted\" plus the fact that she published anyway."
+      }
+    ],
+    "practice_question_ids": [],
+    "related_concept_ids": []
+  },
+  {
+    "concept_id": "62830a33-a97d-4644-8a48-6bbeff24fa80",
+    "subject": "math",
+    "domain": "Algebra",
+    "topic": "Linear Equations",
+    "subtopic": "Solving for a single variable",
+    "difficulty": 2,
+    "explanation": "Isolate the variable by performing the same operation on both sides of the equation. Work in this order: distribute, combine like terms, move variable terms to one side, move constants to the other, then divide.",
+    "examples": [
+      {
+        "prompt": "Solve for x: 3(x + 2) = 5x - 4",
+        "solution": "Distribute: 3x + 6 = 5x - 4. Move variables: 6 + 4 = 5x - 3x. Simplify: 10 = 2x. Divide: x = 5."
+      }
+    ],
+    "practice_question_ids": [],
+    "related_concept_ids": []
+  },
+  {
+    "concept_id": "9e7a9fd6-531b-4142-a0ff-38e533cee6a5",
+    "subject": "writing",
+    "domain": "Standard English Conventions",
+    "topic": "Grammar",
+    "subtopic": "Dependent clauses and commas",
+    "difficulty": 2,
+    "explanation": "A dependent clause cannot stand alone as a sentence. When it begins a sentence, follow it with a comma. When it ends a sentence, no comma is usually needed. Spot dependent clauses by the subordinating word that starts them (because, although, when, since, if).",
+    "examples": [
+      {
+        "prompt": "Choose the correctly punctuated sentence: (A) Although the exam was long, she finished early. (B) Although the exam was long she finished early.",
+        "solution": "A is correct \u2014 the sentence opens with a dependent clause (\"Although the exam was long\"), which requires a comma before the independent clause."
+      }
+    ],
+    "practice_question_ids": [],
+    "related_concept_ids": []
+  }
+]

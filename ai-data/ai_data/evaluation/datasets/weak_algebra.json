@@ -1,0 +1,15 @@
+{
+  "scenario": "Student with weak algebra",
+  "target_score": 1400,
+  "current_score": 1020,
+  "topics": {
+    "Quadratic Equations": {
+      "subject": "math",
+      "difficulty": 3,
+      "correct_sequence": [false, true, false, false, true, false, false, true, false, false]
+    }
+  },
+  "expected_weakness": "Quadratic Equations",
+  "expected_recommendation_action": "review_concept",
+  "expected_learning_strategy": "Reteach factoring and the quadratic formula from worked examples before returning to timed practice."
+}

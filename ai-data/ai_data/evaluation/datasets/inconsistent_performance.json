@@ -1,0 +1,15 @@
+{
+  "scenario": "Student with inconsistent performance",
+  "target_score": 1350,
+  "current_score": 1000,
+  "topics": {
+    "Data Analysis": {
+      "subject": "math",
+      "difficulty": 3,
+      "correct_sequence": [true, false, true, false, true, false, true, false, true, false]
+    }
+  },
+  "expected_weakness": "Data Analysis",
+  "expected_recommendation_action": "review_concept",
+  "expected_learning_strategy": "Alternating right/wrong on the same topic suggests inconsistent method rather than a knowledge gap — review the student's approach on each miss rather than reteaching the concept from scratch."
+}
