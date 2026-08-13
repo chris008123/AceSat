@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database.connection import Base
 import app.database.connection as db_connection
+from app.config.settings import settings
 from app.main import app
 
 
@@ -29,6 +30,12 @@ def client(tmp_path, monkeypatch):
     """A TestClient wired to its own isolated SQLite file, so Phase 2/3
     tests (auth, assessments, ai bridge) don't share state with each other
     or with the dev-convenience `backend_local.db`.
+
+    Also points `settings.database_url` at this same file and initializes
+    ai-data's own tables against it — `memory_bridge.py` opens sessions
+    via `settings.database_url` directly (not through this fixture's
+    SQLAlchemy engine override), so without this the memory tests would
+    silently read/write a different database than the rest of the test.
     """
     db_url = f"sqlite:///{tmp_path}/test_backend_api.db"
     engine = create_engine(db_url, connect_args={"check_same_thread": False})
@@ -36,6 +43,7 @@ def client(tmp_path, monkeypatch):
 
     monkeypatch.setattr(db_connection, "engine", engine)
     monkeypatch.setattr(db_connection, "SessionLocal", SessionLocal)
+    monkeypatch.setattr(settings, "database_url", db_url)
 
     def override_get_db():
         db = SessionLocal()
@@ -46,6 +54,10 @@ def client(tmp_path, monkeypatch):
 
     app.dependency_overrides[db_connection.get_db] = override_get_db
     Base.metadata.create_all(engine)
+
+    from ai_data.models.db import init_db as init_ai_data_db
+
+    init_ai_data_db(db_url)
 
     with TestClient(app) as test_client:
         yield test_client

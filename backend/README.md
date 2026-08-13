@@ -13,12 +13,15 @@ Both packages assume they sit as sibling directories in one monorepo
 
 **Table ownership** (see `ai-data/README.md` for the full boundary note):
 - **This backend owns**: `users`, `student_profiles`, `questions`,
-  `assessments`, `answers`, `learning_sessions`, `study_plans`.
+  `assessments`, `answers`, `learning_sessions`, `study_plans`,
+  `progress_records`.
 - **ai-data owns**: `topic_mastery`, `ai_memory`, `ai_logs`,
   `concept_embeddings`.
 - **Both live in one Postgres database**, under **one Alembic migration
-  chain** managed here (`alembic/env.py` merges both packages' table
-  metadata — verified to include all 6 core tables in one `MetaData`).
+  chain** managed here (`app/database/metadata.py` merges both packages'
+  table metadata into one `MetaData`, shared by both `alembic/env.py` and
+  the initial migration — verified via a real Alembic CLI run to produce
+  all 12 tables).
 
 ## Agent orchestration — a placeholder, not the real thing
 
@@ -74,27 +77,86 @@ frontend changes.
   stand-in — pulls the student's weakest topic's stored explanation, not
   an LLM-backed coach).
 
+**Phase 4 (Sessions, Progress, Memory) — done.**
+- `LearningSession`/`ProgressRecord` models (`app/models/learning_session.py`,
+  `app/models/progress.py`).
+- `POST /sessions/start` (mission text pulled from the student's current
+  weakest topic via `ai_bridge.suggest_mission_topic`), `POST /sessions/complete`
+  (`app/services/session_service.py`) — also writes a coarse `ProgressRecord`
+  snapshot on completion.
+- `GET /progress/dashboard`, `GET /progress/report`
+  (`app/services/progress_service.py`) — degrade gracefully (no 4xx) when
+  there isn't enough history for a diagnosis yet.
+- `POST /memory/update`, `GET /memory/student/{id}`
+  (`app/services/memory_bridge.py`) — a thin wrapper around ai-data's
+  `MemoryService`/`SQLAlchemyLongTermMemoryRepository`, pointed at this
+  backend's own `DATABASE_URL` since both packages share one database.
+  `GET /memory/student/{id}` is scoped to the authenticated student's own
+  id — there's no admin role wired up yet to allow broader access.
+
 Verified end-to-end via `TestClient`: register → login → create profile →
 run a full assessment → get a real, evidence-based diagnosis → get a
-persisted study plan. **20/20 tests pass** (`app/tests/`), covering auth,
-student profile, the assessment flow (including the subject-balancing
-fix), and the AI bridge — respecting ai-data's evidence thresholds (a
-diagnosis only fires once there's actually enough data).
+persisted study plan → start/complete a learning session → see it reflected
+on the dashboard. **32/32 tests pass** (`app/tests/`).
 
 **Not yet built:**
-- `learning_sessions`, `progress_records` tables and the
-  `GET /progress/dashboard`, `GET /progress/report` endpoints
-  (`Api_design.txt` §10).
-- Memory API endpoints (`POST /memory/update`, `GET /memory/student/{id}`
-  per `Api_design.txt` §11) — should be thin wrappers around ai-data's
-  `MemoryService`, not new logic.
 - Background tasks (progress analysis, daily plan generation —
   `Backend_architecture.txt` §11).
-- An actual `alembic revision --autogenerate` generated and applied
-  against a real Postgres instance — the merge logic in `alembic/env.py`
-  is verified to produce the right merged metadata, but no migration has
-  been run against real Postgres yet (only SQLite, for local dev/tests).
+- Notifications (`POST /notifications/create` per `Api_design.txt` §12 —
+  marked Low priority in the roadmap's own priority matrix).
 - Rate limiting, and any validation beyond Pydantic's defaults.
+- `learning_sessions` currently only records an "overall" progress
+  snapshot per session, not per-subject — `Api_design.txt` §9's session
+  completion request doesn't include a subject, so there's nothing to tag
+  it with yet; revisit if per-subject dashboard trends become a real need.
+
+## Database — Supabase setup
+
+Supabase is just hosted Postgres, so the existing Alembic chain applies
+as-is. Two things had to be added to actually make that true rather than
+just documented: a real Postgres driver (`psycopg2-binary` — SQLAlchemy
+alone can't connect to Postgres without one, and it was missing from
+`pyproject.toml` before now), and an actual initial migration file
+(`alembic/versions/0001_initial_schema.py` — `alembic/env.py` always had
+the merge logic, but nothing had ever been generated from it).
+
+The migration mechanics (`upgrade`, `current`, `downgrade`) are verified
+against a real Alembic CLI run — confirmed it creates all 12 tables
+(8 backend-owned + 4 ai-data-owned, including `concept_embeddings`, which
+was missing from the metadata merge until this pass) and tears them back
+down cleanly. That verification used a local SQLite target, since this
+environment doesn't have network access to an actual Supabase host —
+the steps below are what to run against the real one.
+
+**Steps:**
+
+1. In your Supabase project dashboard, go to Project Settings → Database
+   and copy the connection string (direct connection is simplest for a
+   hackathon; use the pooler if you expect many concurrent short-lived
+   connections — see `.env.example` for both formats and the SSL note).
+2. Set `DATABASE_URL` in your `.env` (or real environment) to that string,
+   and set `ENVIRONMENT=production` — `development` mode calls
+   `init_db()`/`create_all()` directly on startup, which you don't want
+   once Alembic is managing the schema.
+3. Run the migration:
+   ```bash
+   alembic upgrade head
+   ```
+4. Verify in the Supabase Table Editor that all 12 tables exist:
+   `users`, `student_profiles`, `questions`, `assessments`, `answers`,
+   `study_plans`, `learning_sessions`, `progress_records`, `topic_mastery`,
+   `ai_memory`, `ai_logs`, `concept_embeddings`.
+5. Any future schema change: edit the SQLAlchemy models (in either this
+   package or `ai-data`), then run
+   `alembic revision --autogenerate -m "description"` — it diffs against
+   whatever's actually in Supabase, using the same merged metadata via
+   `app/database/metadata.py`.
+
+Note: `ai-data`'s own `models/db.py` has its own SQLite-fallback engine
+for standalone use — in production, `app/services/ai_bridge.py` and
+`memory_bridge.py` both pass this backend's `settings.database_url`
+explicitly into ai-data's session calls, so everything actually lands in
+the same Supabase database rather than ai-data's local fallback file.
 
 ## Running locally
 

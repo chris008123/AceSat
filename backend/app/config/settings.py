@@ -20,10 +20,11 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # Falls back to a local SQLite file so `main.py` and the test suite
-    # run without a live Postgres instance — point this at the real
-    # connection string (see Deployment_architecture.txt §5 example)
-    # once one exists. Same DATABASE_URL should also back ai-data's
-    # own tables in production (see README's "one migration chain" note).
+    # run without a live Postgres instance — set DATABASE_URL (see
+    # .env.example) to your Supabase connection string for real use. Same
+    # DATABASE_URL also backs ai-data's own tables in production (see
+    # README's "one migration chain" note) — both packages' tables live
+    # in the same Supabase Postgres database.
     database_url: str = "sqlite:///./backend_local.db"
 
     jwt_secret: str = "dev-secret-change-me"

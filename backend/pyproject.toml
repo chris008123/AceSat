@@ -12,6 +12,12 @@ dependencies = [
     "python-jose[cryptography]>=3.3",
     "bcrypt>=4.0",
     "alembic>=1.13",
+    # Postgres driver — this was missing before; SQLAlchemy alone can't
+    # actually connect to Postgres/Supabase without it. psycopg2-binary
+    # (not the source `psycopg2`) avoids needing build tools/libpq-dev on
+    # every machine that installs this — fine for a hackathon, consider
+    # switching to source `psycopg2` for a production deployment.
+    "psycopg2-binary>=2.9",
     # Local dependency on the ai-data module (see project README for the
     # boundary between this backend and ai-data's tables/services).
     # Expects ai-data/ as a sibling directory — adjust the path if the

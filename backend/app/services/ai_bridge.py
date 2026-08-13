@@ -160,3 +160,17 @@ def coach(db: Session, student_id: UUID, question: str) -> CoachResponse:
     concept = concepts[0]
     next_question = concept.examples[0].prompt if concept.examples else None
     return CoachResponse(explanation=concept.explanation, next_question=next_question)
+
+
+def suggest_mission_topic(db: Session, student_id: UUID) -> str | None:
+    """Used by `session_service.start_session` to give a learning session
+    a meaningful `mission` label (Api_design.txt §9's
+    `"mission": "Reading inference practice"` example) instead of a
+    generic placeholder. Returns None if there isn't enough answer history
+    yet to name a weak topic — callers fall back to a generic mission.
+    """
+    responses = _student_responses(db, student_id)
+    if not responses:
+        return None
+    weak_topics = identify_weak_topics(responses)
+    return weak_topics[0] if weak_topics else None
