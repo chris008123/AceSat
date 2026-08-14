@@ -9,6 +9,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
+    "email-validator>=2.1",
     "python-jose[cryptography]>=3.3",
     "bcrypt>=4.0",
     "alembic>=1.13",
@@ -18,16 +19,27 @@ dependencies = [
     # every machine that installs this — fine for a hackathon, consider
     # switching to source `psycopg2` for a production deployment.
     "psycopg2-binary>=2.9",
-    # Local dependency on the ai-data module (see project README for the
-    # boundary between this backend and ai-data's tables/services).
-    # Expects ai-data/ as a sibling directory — adjust the path if the
-    # monorepo layout differs (Deployment_architecture.txt §7 puts both
-    # under one repo root: backend/ and ai-data/ as siblings).
-    "ai-data @ file://../ai-data",
 ]
+
+# ai-data is NOT listed as a dependency above on purpose: pip requires an
+# ABSOLUTE file:// URI for a local package reference inside pyproject.toml
+# (a relative one like "file://../ai-data" fails with "non-local file URIs
+# are not supported" — this bit us once already). Install it as a
+# separate, explicit step instead — see "Running locally" below — which
+# also means the same pyproject.toml works regardless of where the
+# monorepo happens to be cloned on disk.
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "httpx>=0.27"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+# Without this, `pip install -e .` fails on a flat layout because
+# setuptools finds two top-level directories with Python files (`app/`
+# and `alembic/`) and refuses to guess which one is "the package" —
+# exactly the "Multiple top-level packages discovered" error. Only `app`
+# should be installed as a package; `alembic/` is migration scripts run
+# in-place via the `alembic` CLI from the project root, never imported.
+include = ["app*"]

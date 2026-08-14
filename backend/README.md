@@ -167,8 +167,49 @@ cp .env.example .env   # defaults to a local SQLite file if DATABASE_URL unset
 uvicorn app.main:app --reload
 ```
 
+**On Windows**, run these as separate commands (not pasted as one block —
+PowerShell can silently swallow later lines into a `>>` continuation if a
+multi-line paste looks unterminated), and if `uvicorn` isn't found after
+installing, PATH may not include your Python user-site `Scripts` folder —
+use `python -m uvicorn app.main:app --reload` instead, which always works
+regardless of PATH.
+
 ## Testing
 
 ```bash
 pytest app/tests -q
 ```
+
+## Troubleshooting
+
+- **`pip install -e .` fails with "Multiple top-level packages discovered
+  in a flat-layout"** — fixed as of this pass (`pyproject.toml` now has
+  `[tool.setuptools.packages.find]` scoping the install to `app/` only,
+  since `alembic/` sits alongside it and confused auto-discovery). If
+  you still hit this, you're on an older copy of `pyproject.toml`.
+- **`ModuleNotFoundError: No module named 'psycopg2'`** — means
+  `psycopg2-binary` didn't get installed, usually because `pip install -e .`
+  failed on the error above before it got that far. Fix the packaging
+  error first, then reinstall.
+- **`pip install -e .` fails on the `ai-data` line specifically** (a
+  "non-local file URIs are not supported" error) — fixed as of this pass;
+  `ai-data` is no longer declared as a dependency *inside*
+  `pyproject.toml` (pip requires an absolute `file://` URI there, and a
+  relative one silently doesn't work on any platform). Install it
+  separately instead: `pip install -e ../ai-data`, then
+  `pip install -e .[dev]` for this package — same two commands as always,
+  just no longer redundant with a broken third mechanism.
+- **`uvicorn` command not found after installing** — usually a PATH
+  issue with pip's user-site install (common on Windows). Use
+  `python -m uvicorn app.main:app --reload` instead — always works
+  regardless of PATH.
+- **`alembic upgrade head` says `Context impl SQLiteImpl` even though
+  you set `DATABASE_URL` to your Supabase string** — means the app is
+  still falling back to the SQLite default, so your `.env` isn't being
+  picked up. Check: (1) you're running the command from inside `backend/`
+  (where `.env` lives, same directory as `pyproject.toml`), (2) the file
+  is actually named `.env`, not `.env.example` or `.env.txt`, (3) there's
+  no leftover `DATABASE_URL` environment variable already set in your
+  shell overriding the file (env vars take precedence over `.env`). You
+  should see `Context impl PostgresqlImpl` once it's actually reading
+  your Supabase connection string.
