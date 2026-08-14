@@ -42,25 +42,57 @@ Pydantic schemas for all four agent outputs, matching the shapes defined in
 required-field enforcement, and numeric bounds (confidence 0-1, duration
 1-240 minutes) for all four schemas.
 
-No agent logic, prompts, or LLM calls exist yet — that's Phase 2 onward.
+### Phase 2 — Diagnostic Agent (done)
+
+`ai_agents.agents.DiagnosticAgent` — consumes `ai_data`'s `StudentContext`
+and produces a validated `DiagnosticResult`, backed by a Groq chat
+completion call (`llama-3.3-70b-versatile` by default, override via
+`GROQ_MODEL` env var or the `model=` constructor arg).
+
+- Prompt lives in `ai_agents/prompts/diagnostic.py`, structured per
+  Prompt_strategy.txt §3 (Role / Goal / Decision Rules / Output Format),
+  with student context injected per-request rather than baked into the
+  system prompt.
+- The LLM's raw JSON reply is parsed into an internal `_DiagnosticLLMOutput`
+  model first (a narrower schema than `DiagnosticResult` — the model never
+  supplies `student_id`, that's filled in from the real context, so a
+  hallucinated ID can't slip through).
+- `priority_topics` is filtered server-side to only topics also present in
+  `weak_topics`, regardless of what the model returned — outputs aren't
+  trusted blindly.
+- Bad JSON or a schema mismatch raises `DiagnosticAgentError` with the raw
+  response attached, rather than silently returning something wrong.
+
+**LLM calls are injectable** (`complete_fn` constructor arg) specifically so
+tests never need a real `GROQ_API_KEY` or network access — they pass a fake
+function returning canned JSON. 6 tests in
+`ai_agents/tests/test_diagnostic_agent.py` cover: valid diagnosis, the
+priority_topics filtering behavior, sparse-data/low-confidence handling,
+invalid JSON, schema mismatches, and the missing-API-key error path.
+
+**To actually call Groq**, set `GROQ_API_KEY` in your environment (or
+`backend/.env`) and construct `DiagnosticAgent()` with no `complete_fn` —
+this hasn't been exercised against the real API in development (no network
+access to `api.groq.com` in this environment), so test it against a real
+key before relying on it.
 
 ### Not yet built
 
-Phase 2 (Diagnostic Agent + Groq wiring), Phase 3 (Planning Agent), Phase 4
-(Coaching Agent), Phase 5 (Analytics Agent), Phase 6 (tool layer), Phase 7
-(orchestrator), Phase 8 (adaptive loop), Phase 9 (backend integration —
-swapping `backend/app/services/ai_bridge.py`'s placeholder logic for real
-agent calls), Phase 10 (evaluation).
+Phase 3 (Planning Agent), Phase 4 (Coaching Agent), Phase 5 (Analytics
+Agent), Phase 6 (tool layer), Phase 7 (orchestrator), Phase 8 (adaptive
+loop), Phase 9 (backend integration — swapping
+`backend/app/services/ai_bridge.py`'s placeholder logic for real agent
+calls), Phase 10 (evaluation).
 
 ## Structure
 
 ```
 ai_agents/
-├── schemas/          # Phase 1 — agent output contracts (this phase)
-├── tests/
-├── agents/            # Phase 2+ — not yet built
-├── prompts/           # Phase 2+ — not yet built
-└── orchestrator/       # Phase 7 — not yet built
+├── schemas/           # Phase 1 — agent output contracts
+├── prompts/            # Phase 2+ — dedicated prompt files, one per agent
+├── agents/              # Phase 2+ — agent implementations
+│   └── diagnostic_agent.py
+└── tests/
 ```
 
 ## Running tests
@@ -68,5 +100,13 @@ ai_agents/
 ```bash
 cd ai-agents
 pip install -e ".[dev]"
+pip install -e ../ai-data   # DiagnosticAgent's StudentContext type comes from here
 python -m pytest -v
+```
+
+## Environment variables (Phase 2+)
+
+```env
+GROQ_API_KEY=your-key-here
+GROQ_MODEL=llama-3.3-70b-versatile   # optional, this is the default
 ```

@@ -5,11 +5,13 @@ description = "AceMentor AI — AI Agent Engineer module (agent contracts, promp
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.6",
+    "groq>=0.11",
 ]
 
-# LLM SDK deps (Groq client, pydantic-ai, etc.) are deliberately NOT added
-# yet — Phase 1 is schemas only, no model calls. They'll land in Phase 2
-# alongside the Diagnostic Agent's actual Groq integration.
+# ai-data is NOT listed as a dependency above, same reasoning as
+# backend/pyproject.toml: pip requires an absolute file:// URI for a local
+# path dependency, which breaks portability across machines/clones. Install
+# it as a separate explicit step instead — see "Running tests" in README.md.
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
