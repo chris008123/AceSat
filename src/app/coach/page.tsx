@@ -1,16 +1,39 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
+
+interface ChatTurn {
+  from: "student" | "coach";
+  text: string;
+}
 
 export default function CoachPage() {
   const router = useRouter();
   const feedRef = useRef<HTMLDivElement>(null);
-  const [studentMsg, setStudentMsg] = useState<string | null>(null);
+  const [insight, setInsight] = useState<string | null>(null);
+  const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [typing, setTyping] = useState(false);
-  const [replied, setReplied] = useState(false);
   const [input, setInput] = useState("");
-  const sentRef = useRef(false);
+  const sendingRef = useRef(false);
+
+  useEffect(() => {
+    api
+      .diagnose()
+      .then((d) => {
+        if (d.weaknesses.length > 0) {
+          setInsight(
+            `Your current focus area is ${d.weaknesses[0]}. ${d.recommendation}`
+          );
+        } else {
+          setInsight(d.recommendation);
+        }
+      })
+      .catch(() =>
+        setInsight("Complete a session or two and I'll start noticing patterns worth flagging.")
+      );
+  }, []);
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -18,22 +41,28 @@ export default function CoachPage() {
     });
   }
 
-  function sendMessage(text: string) {
-    if (sentRef.current || !text.trim()) return;
-    sentRef.current = true;
-    setStudentMsg(text);
+  async function sendMessage(text: string) {
+    if (sendingRef.current || !text.trim()) return;
+    sendingRef.current = true;
+    setInput("");
+    setTurns((prev) => [...prev, { from: "student", text }]);
+    setTyping(true);
     scrollToBottom();
 
-    setTimeout(() => {
-      setTyping(true);
-      scrollToBottom();
-    }, 350);
-
-    setTimeout(() => {
+    try {
+      const res = await api.coach(text);
+      const reply = res.next_question ? `${res.explanation} ${res.next_question}` : res.explanation;
+      setTurns((prev) => [...prev, { from: "coach", text: reply }]);
+    } catch {
+      setTurns((prev) => [
+        ...prev,
+        { from: "coach", text: "I couldn't reach the server just now — try again in a moment." },
+      ]);
+    } finally {
       setTyping(false);
-      setReplied(true);
+      sendingRef.current = false;
       scrollToBottom();
-    }, 1500);
+    }
   }
 
   return (
@@ -69,46 +98,21 @@ export default function CoachPage() {
             Pattern noticed
           </div>
           <p className="text-[13px] leading-relaxed text-ink">
-            You&apos;ve missed <b className="font-semibold">3 of the last 4</b> inference questions
-            where the evidence was a physical action rather than dialogue. That&apos;s a specific,
-            fixable pattern.
+            {insight ?? "Looking at your recent answers…"}
           </p>
-          <div className="mt-3 flex gap-2">
-            <span className="cursor-pointer rounded-full bg-primary px-3.5 py-2 text-[12px] font-semibold text-white">
-              Practice this →
-            </span>
-            <span className="cursor-pointer rounded-full border border-line bg-paper px-3.5 py-2 text-[12px] font-semibold text-ink">
-              Remind me later
-            </span>
-          </div>
         </div>
 
-        {/* recommendation card */}
-        <div className="rounded-[14px] border border-line bg-paper-raised p-3.5 shadow-sm">
-          <div className="mb-1.5 flex items-start justify-between gap-2.5">
-            <h3 className="font-display text-[14.5px] font-semibold">Adjusted tomorrow&apos;s plan</h3>
-            <span className="whitespace-nowrap rounded-full bg-gold-dim px-2 py-0.5 font-mono text-[11px] text-gold">
-              +10 min
-            </span>
-          </div>
-          <p className="mb-2.5 text-[12.5px] leading-relaxed text-ink-soft">
-            I added a short inference drill focused on action-based evidence, and trimmed vocabulary
-            time since you&apos;re already at 91% there.
-          </p>
-          <button className="rounded-full bg-primary-dim px-3.5 py-2 text-[12.5px] font-semibold text-primary-deep">
-            View plan
-          </button>
-        </div>
-
-        <CoachBubble>
-          Want to walk through one of those missed questions together right now, or later during
-          your session?
-        </CoachBubble>
-
-        {studentMsg && (
-          <div className="ml-auto max-w-[78%] rounded-[14px] rounded-tr-[3px] bg-ink px-3.5 py-2.5 text-[13px] leading-relaxed text-white">
-            {studentMsg}
-          </div>
+        {turns.map((t, i) =>
+          t.from === "student" ? (
+            <div
+              key={i}
+              className="ml-auto max-w-[78%] rounded-[14px] rounded-tr-[3px] bg-ink px-3.5 py-2.5 text-[13px] leading-relaxed text-white"
+            >
+              {t.text}
+            </div>
+          ) : (
+            <CoachBubble key={i}>{t.text}</CoachBubble>
+          )
         )}
 
         {typing && (
@@ -125,18 +129,11 @@ export default function CoachPage() {
             </div>
           </div>
         )}
-
-        {replied && (
-          <CoachBubble>
-            Good — let&apos;s do it now while it&apos;s fresh. I&apos;ll pull up the passage from
-            question 6. Look for what the character <i>does</i>, not just what they say. Ready?
-          </CoachBubble>
-        )}
       </div>
 
       <div className="border-t border-line bg-paper-raised px-3.5 pt-3 pb-[calc(0.9rem+env(safe-area-inset-bottom))]">
         <div className="mb-2.5 flex gap-2 overflow-x-auto pb-0.5">
-          {["Let's do it now", "Remind me tonight", "Why does this matter?"].map((chip) => (
+          {["What should I practice next?", "Why does this matter?", "Give me an example"].map((chip) => (
             <button
               key={chip}
               onClick={() => sendMessage(chip)}

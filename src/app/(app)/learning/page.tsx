@@ -1,6 +1,21 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { api, StudyPlanItem } from "@/lib/api";
 
 export default function LearningHubPage() {
+  const [plan, setPlan] = useState<StudyPlanItem[] | null>(null);
+
+  useEffect(() => {
+    api
+      .studyPlan()
+      .then((res) => setPlan(res.plan))
+      .catch(() => setPlan([]));
+  }, []);
+
+  const mission = plan?.[0];
+
   return (
     <div className="flex flex-col gap-4 px-4.5 py-5">
       <div>
@@ -18,7 +33,9 @@ export default function LearningHubPage() {
         </div>
         <div className="flex-1">
           <h3 className="font-display text-[14px] font-semibold">Today&apos;s mission</h3>
-          <p className="mt-0.5 text-[11.5px] text-ink-soft">Reading Inference Practice · 20 min</p>
+          <p className="mt-0.5 text-[11.5px] text-ink-soft">
+            {mission ? `${mission.topic} · ${mission.time}` : "General practice"}
+          </p>
         </div>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5 shrink-0 text-ink-soft">
           <path d="M9 6l6 6-6 6" />
@@ -33,7 +50,7 @@ export default function LearningHubPage() {
         </div>
         <div className="flex-1">
           <h3 className="font-display text-[14px] font-semibold">Message your coach</h3>
-          <p className="mt-0.5 text-[11.5px] text-ink-soft">1 new insight waiting</p>
+          <p className="mt-0.5 text-[11.5px] text-ink-soft">Get a personalized study insight</p>
         </div>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5 shrink-0 text-ink-soft">
           <path d="M9 6l6 6-6 6" />

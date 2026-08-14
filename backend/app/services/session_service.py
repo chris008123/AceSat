@@ -14,11 +14,37 @@ from sqlalchemy.orm import Session
 
 from app.models.learning_session import LearningSession
 from app.models.progress import ProgressRecord
+from app.models.question import Question
 from app.services.ai_bridge import suggest_mission_topic
 from app.utils.errors import SessionError, ValidationAPIError
 
+# Small, fixed practice set per mission — mirrors assessment_service's
+# DIAGNOSTIC_QUESTION_COUNT approach: a hackathon MVP doesn't need
+# adaptive session length yet, just a short focused set.
+SESSION_QUESTION_COUNT = 3
 
-def start_session(db: Session, student_id: UUID) -> LearningSession:
+
+def _pick_session_questions(db: Session, topic: str | None) -> list[Question]:
+    """Prefers questions from the student's weak topic (what `mission`
+    is named after); falls back to a general spread if that topic has no
+    questions yet, so a session never comes back empty.
+    """
+    questions: list[Question] = []
+    if topic:
+        questions = db.query(Question).filter_by(topic=topic).limit(SESSION_QUESTION_COUNT).all()
+    if len(questions) < SESSION_QUESTION_COUNT:
+        seen_ids = {q.id for q in questions}
+        extra = (
+            db.query(Question)
+            .filter(~Question.id.in_(seen_ids) if seen_ids else True)
+            .limit(SESSION_QUESTION_COUNT - len(questions))
+            .all()
+        )
+        questions.extend(extra)
+    return questions
+
+
+def start_session(db: Session, student_id: UUID) -> tuple[LearningSession, list[Question]]:
     topic = suggest_mission_topic(db, student_id)
     mission = f"{topic} practice" if topic else "General practice"
 
@@ -26,7 +52,9 @@ def start_session(db: Session, student_id: UUID) -> LearningSession:
     db.add(session)
     db.commit()
     db.refresh(session)
-    return session
+
+    questions = _pick_session_questions(db, topic)
+    return session, questions
 
 
 def complete_session(

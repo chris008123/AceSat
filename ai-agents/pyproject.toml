@@ -1,0 +1,21 @@
+[project]
+name = "ai-agents"
+version = "0.1.0"
+description = "AceMentor AI — AI Agent Engineer module (agent contracts, prompts, orchestration)"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+]
+
+# LLM SDK deps (Groq client, pydantic-ai, etc.) are deliberately NOT added
+# yet — Phase 1 is schemas only, no model calls. They'll land in Phase 2
+# alongside the Diagnostic Agent's actual Groq integration.
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["ai_agents*"]

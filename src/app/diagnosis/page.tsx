@@ -1,27 +1,45 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const CARDS = [
-  {
-    kind: "strength" as const,
-    title: "Strength: Vocabulary",
-    body: "You're already performing above target level here.",
-  },
-  {
-    kind: "weakness" as const,
-    title: "Focus area: Reading inference",
-    body: "Missed evidence-based questions tied to character action.",
-  },
-  {
-    kind: "weakness" as const,
-    title: "Focus area: Algebra word problems",
-    body: "Setup/translation is the gap, not the calculation itself.",
-  },
-];
+import { api, DiagnoseResponse } from "@/lib/api";
 
 export default function DiagnosisPage() {
   const router = useRouter();
+  const [diagnosis, setDiagnosis] = useState<DiagnoseResponse | null>(null);
+
+  useEffect(() => {
+    api
+      .diagnose()
+      .then(setDiagnosis)
+      .catch(() =>
+        // Known limitation: the assessment page above only answers one
+        // question (BACKEND_INTEGRATION.md §7.1), so there often isn't
+        // enough evidence yet for the AI bridge's weak/strong-topic
+        // detection (min 3 answers per topic) — this shows a graceful
+        // fallback rather than an error in that case.
+        setDiagnosis({
+          weaknesses: [],
+          strengths: [],
+          recommendation: "Complete a few more questions and I'll be able to spot patterns here.",
+        })
+      );
+  }, []);
+
+  const cards = diagnosis
+    ? [
+        ...diagnosis.strengths.map((topic) => ({
+          kind: "strength" as const,
+          title: `Strength: ${topic}`,
+          body: "You're already performing well here.",
+        })),
+        ...diagnosis.weaknesses.map((topic) => ({
+          kind: "weakness" as const,
+          title: `Focus area: ${topic}`,
+          body: "This is where we'll start building your study plan.",
+        })),
+      ]
+    : [];
 
   return (
     <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper">
@@ -34,11 +52,21 @@ export default function DiagnosisPage() {
           </div>
           <h1 className="font-display text-[19px] font-semibold">Your learning profile</h1>
           <p className="mt-1.5 max-w-[270px] text-[12.5px] leading-relaxed text-ink-soft">
-            Based on your diagnostic, here&apos;s where we&apos;ll start.
+            {diagnosis?.recommendation ?? "Based on your diagnostic, here's where we'll start."}
           </p>
 
+          {!diagnosis && (
+            <p className="mt-6 text-[13px] text-ink-soft">Analyzing your answers…</p>
+          )}
+
+          {diagnosis && cards.length === 0 && (
+            <p className="mt-6 text-[13px] text-ink-soft">
+              Not enough data yet for a detailed breakdown — keep practicing and this will fill in.
+            </p>
+          )}
+
           <div className="mt-4.5 flex w-full flex-col gap-2.5 text-left">
-            {CARDS.map((c) => (
+            {cards.map((c) => (
               <div
                 key={c.title}
                 className="flex items-start gap-2.5 rounded-[14px] border border-line bg-paper-raised p-3.5"

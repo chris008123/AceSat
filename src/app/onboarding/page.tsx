@@ -8,7 +8,8 @@ import {
   OnboardingAnswers,
   STUDY_TIME_LABELS,
 } from "@/lib/types";
-import { saveOnboardingAnswers } from "@/lib/studentStore";
+import { saveLocalName } from "@/lib/studentStore";
+import { api, ApiError } from "@/lib/api";
 
 const TOTAL_STEPS = 6;
 
@@ -40,6 +41,8 @@ const CONF_OPTIONS: { val: ConfidenceLevel; emoji: string; t: string; s: string 
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<OnboardingAnswers>({
     name: "",
     targetScore: null,
@@ -61,13 +64,21 @@ export default function OnboardingPage() {
       ? !!answers.confidence
       : true;
 
-  function handleContinue() {
+  async function handleContinue() {
     if (step < TOTAL_STEPS) {
       setStep(step + 1);
       return;
     }
-    saveOnboardingAnswers(answers);
-    router.push("/assessment");
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await api.createProfile(answers);
+      saveLocalName(answers.name);
+      router.push("/assessment");
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : "Couldn't save your profile — try again.");
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -270,8 +281,11 @@ export default function OnboardingPage() {
       </div>
 
       <div className="border-t border-line bg-paper-raised px-6 pt-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <button className="btn-primary" disabled={!canContinue} onClick={handleContinue}>
-          {step === TOTAL_STEPS ? "Start assessment" : "Continue"}
+        {submitError && (
+          <p className="mb-2 text-center text-[12px] text-warm-deep">{submitError}</p>
+        )}
+        <button className="btn-primary" disabled={!canContinue || submitting} onClick={handleContinue}>
+          {submitting ? "Setting up…" : step === TOTAL_STEPS ? "Start assessment" : "Continue"}
         </button>
       </div>
     </div>

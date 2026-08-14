@@ -1,19 +1,49 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { api, DashboardResponse, WeeklyReportResponse } from "@/lib/api";
+
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
-const DONE_COUNT = 6; // first 6 days complete, 7th is "today"
+
+// Comment added during backend integration: `/progress/dashboard` and
+// `/progress/report` (app/schemas/progress.py) only expose current
+// score, improvement, weak area, streak, study hours, and questions
+// completed — there's no endpoint for historical weekly scores, a
+// skill-by-skill radar breakdown, per-topic mastery percentages, or a
+// day-by-day streak calendar. The trend line, radar chart, mastery
+// bars, and streak calendar below stay as illustrative placeholders;
+// only the values pulled from the two real endpoints are live.
 
 export default function ProgressPage() {
+  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
+  const [report, setReport] = useState<WeeklyReportResponse | null>(null);
+
+  useEffect(() => {
+    api.getDashboard().then(setDashboard).catch(() => setDashboard(null));
+    api.getReport().then(setReport).catch(() => setReport(null));
+  }, []);
+
+  const streak = dashboard?.streak ?? 0;
+  const doneCount = Math.min(streak, DAYS.length);
+  const hours = report ? Math.floor(report.study_hours) : null;
+  const minutes = report ? Math.round((report.study_hours - Math.floor(report.study_hours)) * 60) : null;
+
   return (
     <div className="flex flex-col gap-4 px-4.5 py-5">
       <div>
         <h1 className="font-display text-[19px] font-semibold">Your Progress</h1>
-        <p className="mt-0.5 text-[12px] text-ink-soft">Since you started · 6 weeks ago</p>
+        <p className="mt-0.5 text-[12px] text-ink-soft">
+          {dashboard?.weak_area ? `Focus area: ${dashboard.weak_area}` : "Keep going — patterns will show up here"}
+        </p>
       </div>
 
       {/* score trend */}
       <div className="card">
         <div className="eyebrow mb-2.5 flex w-full items-center justify-between normal-case tracking-normal">
           <span className="uppercase tracking-wide">Estimated SAT score</span>
-          <span className="pill-mono">1200 · +150</span>
+          <span className="pill-mono">
+            {dashboard?.current_score ?? "—"} · {dashboard?.improvement ?? "—"}
+          </span>
         </div>
         <svg viewBox="0 0 320 110" preserveAspectRatio="none" className="block h-[110px] w-full">
           <line x1="0" y1="27" x2="320" y2="27" stroke="#E4E7F0" strokeWidth="1" />
@@ -114,10 +144,10 @@ export default function ProgressPage() {
         <div className="eyebrow mb-2.5">This week</div>
         <div className="grid grid-cols-2 gap-2.5">
           {[
-            { v: "4h 20m", l: "Study time" },
-            { v: "186", l: "Questions done" },
-            { v: "76%", l: "Avg accuracy" },
-            { v: "6/7", l: "Days active" },
+            { v: report ? `${hours}h ${minutes}m` : "—", l: "Study time" },
+            { v: report ? String(report.questions_completed) : "—", l: "Questions done" },
+            { v: "—", l: "Avg accuracy" },
+            { v: `${doneCount}/7`, l: "Days active" },
           ].map((s) => (
             <div key={s.l} className="rounded-[9px] bg-paper px-3 py-2.5">
               <div className="font-mono text-[16px] font-medium">{s.v}</div>
@@ -131,12 +161,12 @@ export default function ProgressPage() {
       <div className="card">
         <div className="eyebrow mb-2.5 flex w-full items-center justify-between normal-case tracking-normal">
           <span className="uppercase tracking-wide">Learning streak</span>
-          <span className="pill-mono">🔥 7 days</span>
+          <span className="pill-mono">🔥 {streak} days</span>
         </div>
         <div className="flex justify-between gap-1.5">
           {DAYS.map((d, i) => {
-            const done = i < DONE_COUNT;
-            const today = i === DONE_COUNT;
+            const done = i < doneCount;
+            const today = i === doneCount;
             return (
               <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
                 <span className="text-[10px] text-ink-soft">{d}</span>

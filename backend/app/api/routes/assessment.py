@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_user
 from app.database.connection import get_db
 from app.models.user import User
+from app.models.question import Question
 from app.schemas.assessment import (
     AssessmentQuestion,
     CompleteAssessmentResponse,
+    QuestionOptionOut,
     StartAssessmentResponse,
     SubmitAnswerRequest,
     SubmitAnswerResponse,
@@ -20,15 +22,35 @@ from app.services import assessment_service, student_service
 router = APIRouter(prefix="/assessment", tags=["assessment"])
 
 
+def question_to_schema(q: Question) -> AssessmentQuestion:
+    """Shared with `app/api/routes/sessions.py` — `answer_options` is
+    stored as a `{letter: text}` dict (Database_design.txt §5.4), sorted
+    here so it always renders as A/B/C/D in order regardless of dict
+    insertion order.
+    """
+    options = [
+        QuestionOptionOut(letter=letter, text=text)
+        for letter, text in sorted((q.answer_options or {}).items())
+    ]
+    return AssessmentQuestion(
+        id=str(q.id),
+        subject=q.subject,
+        topic=q.topic,
+        difficulty=q.difficulty,
+        question_text=q.question_text,
+        options=options,
+        correct_answer=q.correct_answer,
+        explanation=q.explanation,
+    )
+
+
 @router.post("/start", response_model=StartAssessmentResponse)
 def start(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> StartAssessmentResponse:
     profile = student_service.get_profile(db, user.id)
     assessment, questions = assessment_service.start_assessment(db, profile.id)
     return StartAssessmentResponse(
         assessment_id=str(assessment.id),
-        questions=[
-            AssessmentQuestion(id=str(q.id), subject=q.subject, difficulty=q.difficulty) for q in questions
-        ],
+        questions=[question_to_schema(q) for q in questions],
     )
 
 

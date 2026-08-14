@@ -5,7 +5,7 @@ import { Question } from "@/lib/types";
 
 interface QuestionCardProps {
   question: Question;
-  onContinue: (wasCorrect: boolean) => void;
+  onContinue: (wasCorrect: boolean, selectedLetter: string) => void;
   continueLabel?: string;
 }
 
@@ -123,7 +123,7 @@ export default function QuestionCard({
           <p className="text-[12.5px] leading-relaxed text-ink">{question.explanation}</p>
         </div>
 
-        <button className="btn-primary" onClick={() => onContinue(isCorrect)}>
+        <button className="btn-primary" onClick={() => onContinue(isCorrect, selected ?? "")}>
           {continueLabel}
         </button>
       </div>

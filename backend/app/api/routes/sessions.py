@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
+from app.api.routes.assessment import question_to_schema
 from app.database.connection import get_db
 from app.models.user import User
 from app.schemas.session import CompleteSessionRequest, CompleteSessionResponse, StartSessionResponse
@@ -17,8 +18,12 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 @router.post("/start", response_model=StartSessionResponse)
 def start(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> StartSessionResponse:
     profile = student_service.get_profile(db, user.id)
-    session = session_service.start_session(db, profile.id)
-    return StartSessionResponse(session_id=str(session.id), mission=session.mission)
+    session, questions = session_service.start_session(db, profile.id)
+    return StartSessionResponse(
+        session_id=str(session.id),
+        mission=session.mission,
+        questions=[question_to_schema(q) for q in questions],
+    )
 
 
 @router.post("/complete", response_model=CompleteSessionResponse)

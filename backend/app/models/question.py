@@ -29,3 +29,8 @@ class Question(Base):
     question_text: Mapped[str] = mapped_column(Text)
     answer_options: Mapped[dict] = mapped_column(_JSONType)
     correct_answer: Mapped[str] = mapped_column(String)
+    # Added for frontend integration: QuestionCard renders an explanation
+    # once the student answers, mirroring `ai_data.models.question.
+    # Question.explanation`. Nullable so existing rows / callers that
+    # don't set it don't break.
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
