@@ -76,13 +76,44 @@ this hasn't been exercised against the real API in development (no network
 access to `api.groq.com` in this environment), so test it against a real
 key before relying on it.
 
+### Phase 3 — Planning Agent (done)
+
+`ai_agents.agents.PlanningAgent` — consumes `ai_data`'s `StudentContext`
+plus a `DiagnosticResult` (from Phase 2's `DiagnosticAgent`) and produces a
+validated `StudyPlan`, backed by a Groq chat completion call. Same model
+default and override mechanism as the Diagnostic Agent.
+
+- `StudentContext` doesn't carry `exam_date` or daily study time (ai-data's
+  `StudentLearningProfile` has them, but they're dropped when building the
+  slimmer `StudentContext`) — rather than editing the `ai-data` package,
+  `PlanningAgent.plan()` takes `available_study_time_minutes` and
+  `exam_date` as explicit arguments. Whoever calls this (the orchestrator,
+  eventually) is responsible for passing them through from the student's
+  profile.
+- Prompt lives in `ai_agents/prompts/planning.py`. It's given the
+  diagnosis's `reasoning`/`weak_topics`/`priority_topics` directly and is
+  told explicitly not to re-diagnose — only schedule.
+- `priority_topics` is filtered server-side to only topics the diagnosis
+  actually flagged as weak or priority, same guard pattern as the
+  Diagnostic Agent.
+- `total_weekly_minutes` is always recomputed by summing `weekly_plan`
+  durations — the model's own claimed total (if any) is ignored entirely,
+  never trusted.
+- Every `StudyPlanItem` still requires a `reason` (enforced by the Phase 1
+  schema itself), so a malformed item raises `PlanningAgentError` the same
+  way invalid JSON does.
+
+8 tests in `ai_agents/tests/test_planning_agent.py`, same fake-`complete_fn`
+approach as Phase 2 — no real GROQ_API_KEY needed to run them. **The real
+Groq call itself is still untested against the live API** in this
+environment (no network access to `api.groq.com`) — verify locally.
+
 ### Not yet built
 
-Phase 3 (Planning Agent), Phase 4 (Coaching Agent), Phase 5 (Analytics
-Agent), Phase 6 (tool layer), Phase 7 (orchestrator), Phase 8 (adaptive
-loop), Phase 9 (backend integration — swapping
-`backend/app/services/ai_bridge.py`'s placeholder logic for real agent
-calls), Phase 10 (evaluation).
+Phase 4 (Coaching Agent), Phase 5 (Analytics Agent), Phase 6 (tool layer),
+Phase 7 (orchestrator), Phase 8 (adaptive loop), Phase 9 (backend
+integration — swapping `backend/app/services/ai_bridge.py`'s placeholder
+logic for real agent calls), Phase 10 (evaluation).
 
 ## Structure
 
@@ -90,8 +121,11 @@ calls), Phase 10 (evaluation).
 ai_agents/
 ├── schemas/           # Phase 1 — agent output contracts
 ├── prompts/            # Phase 2+ — dedicated prompt files, one per agent
+│   ├── diagnostic.py
+│   └── planning.py
 ├── agents/              # Phase 2+ — agent implementations
-│   └── diagnostic_agent.py
+│   ├── diagnostic_agent.py
+│   └── planning_agent.py
 └── tests/
 ```
 
