@@ -131,9 +131,14 @@ the steps below are what to run against the real one.
 **Steps:**
 
 1. In your Supabase project dashboard, go to Project Settings → Database
-   and copy the connection string (direct connection is simplest for a
-   hackathon; use the pooler if you expect many concurrent short-lived
-   connections — see `.env.example` for both formats and the SSL note).
+   → Connection pooling → Session mode, and copy that connection string
+   — **use the pooler, not the direct connection**. Supabase's direct
+   hostname (`db.[ref].supabase.co`) is IPv6-only unless you've paid for
+   the IPv4 add-on, and fails to resolve entirely
+   (`could not translate host name`) on networks that don't route IPv6
+   properly. The pooler hostname is IPv4-compatible and sidesteps this.
+   See `.env.example` for the exact format — note the username changes to
+   `postgres.[PROJECT-REF]`, not just `postgres`.
 2. Set `DATABASE_URL` in your `.env` (or real environment) to that string,
    and set `ENVIRONMENT=production` — `development` mode calls
    `init_db()`/`create_all()` directly on startup, which you don't want
@@ -203,6 +208,21 @@ pytest app/tests -q
   issue with pip's user-site install (common on Windows). Use
   `python -m uvicorn app.main:app --reload` instead — always works
   regardless of PATH.
+- **`psycopg2.OperationalError: could not translate host name
+  "db.[ref].supabase.co" to address: Unknown server error`** — not a bug
+  in this project. Supabase's direct connection hostname is IPv6-only
+  unless you've paid for the IPv4 add-on; if your network doesn't route
+  IPv6 properly, that specific hostname just won't resolve. Switch to the
+  connection pooler string (Project Settings → Database → Connection
+  pooling → Session mode) — it's IPv4-compatible. Remember the username
+  changes to `postgres.[PROJECT-REF]` for the pooler, not just `postgres`.
+- **`ValueError: invalid interpolation syntax` when running `alembic
+  upgrade head`** — fixed as of this pass. Alembic's config is built on
+  Python's `configparser`, which treats `%` as a special character; a
+  Supabase password containing a URL-encoded character (commonly `%40`
+  for `@`) breaks it unless escaped. `alembic/env.py` now escapes every
+  `%` as `%%` before handing the URL to `set_main_option` — if you still
+  see this, you're on an older copy of `env.py`.
 - **`alembic upgrade head` says `Context impl SQLiteImpl` even though
   you set `DATABASE_URL` to your Supabase string** — means the app is
   still falling back to the SQLite default, so your `.env` isn't being

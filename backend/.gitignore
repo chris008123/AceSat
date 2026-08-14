@@ -1,1 +1,7 @@
+*.pyc
 .env
+.next/
+__pycache__/
+backend_local.db
+node_modules
+node_modules/

@@ -27,7 +27,13 @@ if config.config_file_name is not None:
 
 target_metadata = get_merged_metadata()
 
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# `configparser` (which Alembic's Config is built on) treats `%` as its
+# interpolation character — a Supabase password containing a URL-encoded
+# character (e.g. `%40` for `@`) breaks `set_main_option` with "invalid
+# interpolation syntax" unless every literal `%` is escaped as `%%` first.
+# `get_main_option`/`get_section` un-escape it back to a single `%`
+# automatically, so the URL that's actually used to connect is correct.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 
 def run_migrations_offline() -> None:
