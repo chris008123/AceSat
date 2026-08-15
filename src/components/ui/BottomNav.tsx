@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 
 const NAV_ITEMS = [
   {
@@ -52,17 +53,23 @@ export default function BottomNav() {
             }`}
           >
             {active && (
-              <span className="absolute -top-2 left-1/2 h-[3px] w-4 -translate-x-1/2 rounded-full bg-gold" />
+              <motion.span
+                layoutId="nav-active-dot"
+                className="absolute -top-2 left-1/2 h-[3px] w-4 -translate-x-1/2 rounded-full bg-gold"
+                transition={{ type: "spring", stiffness: 500, damping: 32 }}
+              />
             )}
-            <svg
+            <motion.svg
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth={1.8}
               className="h-5 w-5"
+              animate={{ scale: active ? 1.1 : 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 15 }}
             >
               {item.icon}
-            </svg>
+            </motion.svg>
             <span className="text-[10.5px] font-semibold">{item.label}</span>
           </Link>
         );
