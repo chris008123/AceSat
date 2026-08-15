@@ -12,11 +12,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Only needed for the real LLM path (Technology_Stack.txt: Google Gemini
-# 2.5 Flash). Every agent has a deterministic fallback and imports this
+# Only needed for the real LLM path (now Groq — see ai-agents/README.md's
+# "Why Groq" note; originally Gemini 2.5 Flash per Technology_Stack.txt's
+# stack pick). Every agent has a deterministic fallback and imports this
 # lazily/guarded (see ai_agents/llm/client.py), so the package works
 # without it — this extra exists for whoever wants the LLM path live.
-llm = ["google-generativeai>=0.7"]
+llm = ["groq>=0.11"]
 dev = ["pytest>=8.0"]
 
 [tool.pytest.ini_options]
