@@ -58,7 +58,7 @@ def test_orchestrator_without_database_url_skips_logging_silently(
 
 def test_orchestrator_from_env_with_no_api_key_is_fully_deterministic(monkeypatch):
     monkeypatch.delenv("AI_API_KEY", raising=False)
-    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
 
     orchestrator = AgentOrchestrator.from_env()
 
