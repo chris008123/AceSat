@@ -2,16 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { api, StudyPlanItem } from "@/lib/api";
+import { staggerParent, staggerItem } from "@/lib/motion";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 export default function LearningHubPage() {
   const [plan, setPlan] = useState<StudyPlanItem[] | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     api
       .studyPlan()
       .then((res) => setPlan(res.plan))
-      .catch(() => setPlan([]));
+      .catch(() => setPlan([]))
+      .finally(() => setLoaded(true));
   }, []);
 
   const mission = plan?.[0];
@@ -25,37 +30,50 @@ export default function LearningHubPage() {
         </p>
       </div>
 
-      <Link href="/session" className="card flex items-center gap-3.5">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-dim text-primary-deep">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
-            <path d="M5 4h11a2 2 0 0 1 2 2v14l-7.5-4L5 20V4Z" />
-          </svg>
-        </div>
-        <div className="flex-1">
-          <h3 className="font-display text-[14px] font-semibold">Today&apos;s mission</h3>
-          <p className="mt-0.5 text-[11.5px] text-ink-soft">
-            {mission ? `${mission.topic} · ${mission.time}` : "General practice"}
-          </p>
-        </div>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5 shrink-0 text-ink-soft">
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      </Link>
+      {!loaded ? (
+        <>
+          <SkeletonCard lines={1} />
+          <SkeletonCard lines={1} />
+        </>
+      ) : (
+        <motion.div variants={staggerParent} initial="hidden" animate="visible" className="flex flex-col gap-4">
+          <motion.div variants={staggerItem}>
+            <Link href="/session" className="card flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-dim text-primary-deep">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+                  <path d="M5 4h11a2 2 0 0 1 2 2v14l-7.5-4L5 20V4Z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-display text-[14px] font-semibold">Today&apos;s mission</h3>
+                <p className="mt-0.5 text-[11.5px] text-ink-soft">
+                  {mission ? `${mission.topic} · ${mission.time}` : "General practice"}
+                </p>
+              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5 shrink-0 text-ink-soft">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </Link>
+          </motion.div>
 
-      <Link href="/coach" className="card flex items-center gap-3.5">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-dim text-[#8A5A12]">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
-            <path d="M12 3l2.6 5.6L21 9.3l-4.5 4.1L17.6 20 12 16.8 6.4 20l1.1-6.6L3 9.3l6.4-.7z" />
-          </svg>
-        </div>
-        <div className="flex-1">
-          <h3 className="font-display text-[14px] font-semibold">Message your coach</h3>
-          <p className="mt-0.5 text-[11.5px] text-ink-soft">Get a personalized study insight</p>
-        </div>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5 shrink-0 text-ink-soft">
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      </Link>
+          <motion.div variants={staggerItem}>
+            <Link href="/coach" className="card flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-dim text-[#8A5A12]">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+                  <path d="M12 3l2.6 5.6L21 9.3l-4.5 4.1L17.6 20 12 16.8 6.4 20l1.1-6.6L3 9.3l6.4-.7z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-display text-[14px] font-semibold">Message your coach</h3>
+                <p className="mt-0.5 text-[11.5px] text-ink-soft">Get a personalized study insight</p>
+              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5 shrink-0 text-ink-soft">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </Link>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }
