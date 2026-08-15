@@ -45,7 +45,7 @@ export default function AssessmentPage() {
   }
 
   return (
-    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper">
+    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper page-enter">
       <div className="flex items-center gap-3 px-5 pt-4.5 pb-2">
         <button
           onClick={() => router.push("/onboarding")}

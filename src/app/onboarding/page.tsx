@@ -82,7 +82,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper">
+    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper page-enter">
       {/* top bar: back + progress dots */}
       <div className="flex items-center gap-3 px-5 pt-4.5 pb-2">
         <button
