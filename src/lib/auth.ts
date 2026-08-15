@@ -53,6 +53,20 @@ function randomCredentials(): { email: string; password: string } {
   };
 }
 
+/** Pulls a human-readable message out of a FastAPI error response body
+ * (`{detail: "..."}` or `{error: {message: "..."}}`), falling back to a
+ * generic message keyed off the HTTP status. Kept local to this file
+ * rather than imported from api.ts's ApiError to avoid a circular
+ * import — api.ts already imports ensureToken/refreshToken from here. */
+async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json();
+    return body?.detail ?? body?.error?.message ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function registerAndLogin(email: string, password: string): Promise<string> {
@@ -115,4 +129,47 @@ export async function refreshToken(): Promise<string> {
 export function clearSession() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(STORAGE_KEY);
+}
+
+/**
+ * Real login, for the /login page — as opposed to `ensureToken`'s
+ * silent anonymous bootstrap. Throws with a message suitable for direct
+ * display to the user (e.g. "Incorrect email or password").
+ */
+export async function loginWithCredentials(email: string, password: string): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    const fallback = res.status === 401 ? "Incorrect email or password." : "Couldn't log in — try again.";
+    throw new Error(await extractErrorMessage(res, fallback));
+  }
+
+  const body = (await res.json()) as { access_token: string; user_id: string };
+  writeSession({ email, password, token: body.access_token, userId: body.user_id });
+}
+
+/**
+ * Real registration, for the /register page. Creates the account, then
+ * logs in immediately so the new session is ready to use — mirrors
+ * what `ensureToken`'s anonymous bootstrap does, just with credentials
+ * the person actually chose (and can use again on another device).
+ */
+export async function registerWithCredentials(email: string, password: string): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    const fallback =
+      res.status === 409 ? "An account with this email already exists." : "Couldn't create your account — try again.";
+    throw new Error(await extractErrorMessage(res, fallback));
+  }
+
+  await loginWithCredentials(email, password);
 }
