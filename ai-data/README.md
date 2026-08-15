@@ -108,11 +108,14 @@ correct DDL against the Postgres dialect specifically (native
 - [x] Relevant student context can be generated.
 - [x] AI memory can retrieve relevant history.
 - [x] Recommendations have explainable reasons.
-- [ ] The AI Agent Engineer can consume structured student context —
-      interfaces (`StudentContext`, `Recommendation`) are ready; actual
-      consumption depends on the AI Agent Engineer's code.
-- [ ] The Backend Engineer can integrate the data layer — interfaces are
-      ready; needs the boundary/session decisions in the section above.
+- [x] The AI Agent Engineer can consume structured student context — the
+      `ai-agents` package now builds `StudentContext` for every agent
+      prompt via `build_context()`, and persists an `AILogRecord` per
+      decision so the "explainable reasons" above have an actual audit
+      trail, not just a well-worded string. See `ai-agents/README.md`.
+- [x] The Backend Engineer can integrate the data layer — `app/services/
+      ai_bridge.py` (backend) and `ai_agents/context.py` both do this
+      today, against the boundary/session decisions in the section above.
 - [x] Automated tests cover the critical logic.
 
 ## Dependencies on other roles
@@ -125,8 +128,11 @@ correct DDL against the Postgres dialect specifically (native
   `models/db.py` (`AI_DATA_DATABASE_URL` env var, defaults to a local
   SQLite file) until the shared Postgres instance is ready; point that env
   var at it whenever it exists, or swap the `Session` at that point.
-- **AI Agent Engineer**: consumes `StudentContext` (Phase 4, done) as the
-  input to Diagnostic/Planning/Coaching agent prompts, and
-  `Recommendation` (done) for the "reason" field the prompt strategy doc
-  requires on every recommendation. `MemoryService.recall()` is the
-  intended way for an agent to pull scoped historical context mid-prompt.
+- **AI Agent Engineer**: now implemented in `ai-agents/` — consumes
+  `StudentContext` (Phase 4) as the input to the Diagnostic/Planning/
+  Coaching agent prompts, and `Recommendation` for the "reason" field the
+  prompt strategy doc requires on every recommendation.
+  `MemoryService.recall()` remains available for an agent to pull scoped
+  historical context mid-prompt but isn't wired into any agent yet — a
+  reasonable next step, not attempted here to avoid pulling long-term
+  memory into every `/ai/*` call before there's a concrete need for it.
