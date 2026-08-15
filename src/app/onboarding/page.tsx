@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ConfidenceLevel,
@@ -121,6 +122,12 @@ export default function OnboardingPage() {
                 className="rounded-[14px] border-[1.5px] border-line bg-paper-raised px-4 py-3.5 text-[15px] text-ink outline-none focus:border-primary"
               />
             </div>
+            <p className="mt-4 text-center text-[12.5px] text-ink-soft">
+              Already have an account?{" "}
+              <Link href="/login" className="font-semibold text-primary-deep">
+                Log in
+              </Link>
+            </p>
           </Step>
         )}
 
