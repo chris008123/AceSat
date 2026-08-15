@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from uuid import UUID
+from sqlalchemy import func
 
 from sqlalchemy.orm import Session
 
@@ -24,41 +25,81 @@ def _as_uuid(value: str | UUID) -> UUID:
     return value if isinstance(value, UUID) else UUID(str(value))
 
 
-def start_assessment(db: Session, student_id: UUID, assessment_type: str = "diagnostic") -> tuple[Assessment, list[Question]]:
-    """Picks a subject-balanced spread of questions rather than the first
-    N rows — with an uneven question bank (e.g. many more reading
-    questions seeded than math), a naive `.limit(N)` can silently starve
-    entire subjects out of every diagnostic, which defeats the point of a
-    diagnostic test. Distributes `DIAGNOSTIC_QUESTION_COUNT` as evenly as
-    possible across whatever subjects currently have questions.
+def start_assessment(
+    db: Session,
+    student_id: UUID,
+    assessment_type: str = "diagnostic",
+) -> tuple[Assessment, list[Question]]:
+    """Create a diagnostic assessment using a randomized,
+    subject-balanced selection from the full question bank.
     """
-    subjects = [row[0] for row in db.query(Question.subject).distinct().all()]
+
+    subjects = [
+        row[0]
+        for row in db.query(Question.subject).distinct().all()
+    ]
+
     if not subjects:
         raise ValidationAPIError(
             "No questions available — seed the question bank before starting an assessment"
         )
 
-    per_subject = max(1, DIAGNOSTIC_QUESTION_COUNT // len(subjects))
-    questions: list[Question] = []
-    for subject in subjects:
-        questions.extend(db.query(Question).filter_by(subject=subject).limit(per_subject).all())
+    # Divide the diagnostic as evenly as possible across subjects.
+    subject_count = len(subjects)
+    base_count = DIAGNOSTIC_QUESTION_COUNT // subject_count
+    remainder = DIAGNOSTIC_QUESTION_COUNT % subject_count
 
-    # Top up with more from any subject if rounding left us short (e.g. 10
-    # questions / 3 subjects = 3 each = 9, not 10).
-    if len(questions) < DIAGNOSTIC_QUESTION_COUNT:
-        seen_ids = {q.id for q in questions}
-        extra = (
+    questions: list[Question] = []
+
+    for index, subject in enumerate(subjects):
+        count = base_count + (1 if index < remainder else 0)
+
+        if count <= 0:
+            continue
+
+        subject_questions = (
             db.query(Question)
-            .filter(~Question.id.in_(seen_ids) if seen_ids else True)
-            .limit(DIAGNOSTIC_QUESTION_COUNT - len(questions))
+            .filter(Question.subject == subject)
+            .order_by(func.random())
+            .limit(count)
             .all()
         )
+
+        questions.extend(subject_questions)
+
+    # Safety fallback/top-up if some subjects don't have enough questions.
+    if len(questions) < DIAGNOSTIC_QUESTION_COUNT:
+        seen_ids = {q.id for q in questions}
+
+        query = db.query(Question)
+
+        if seen_ids:
+            query = query.filter(~Question.id.in_(seen_ids))
+
+        extra = (
+            query
+            .order_by(func.random())
+            .limit(
+                DIAGNOSTIC_QUESTION_COUNT - len(questions)
+            )
+            .all()
+        )
+
         questions.extend(extra)
 
-    assessment = Assessment(student_id=student_id, assessment_type=assessment_type)
+    # Final shuffle so subjects aren't always grouped together.
+    import random
+    random.shuffle(questions)
+
+    assessment = Assessment(
+        student_id=student_id,
+        assessment_type=assessment_type,
+    )
+
     db.add(assessment)
     db.commit()
     db.refresh(assessment)
+
     return assessment, questions
 
 

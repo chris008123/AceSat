@@ -20,27 +20,44 @@ def get_profile(db: Session, user_id: UUID) -> StudentProfile:
 
 
 def create_profile(
-    db: Session,
-    user_id: UUID,
-    target_score: int,
-    study_time_daily: int,
-    current_score: int | None = None,
-    exam_date=None,
-    confidence_level: int | None = None,
-    learning_style: str | None = None,
-) -> StudentProfile:
-    profile = StudentProfile(
-        user_id=user_id,
-        target_score=target_score,
-        current_score=current_score,
-        exam_date=exam_date,
-        study_time_daily=study_time_daily,
-        confidence_level=confidence_level,
-        learning_style=learning_style,
+    db,
+    user_id,
+    target_score,
+    current_score,
+    exam_date,
+    study_time_daily,
+    confidence_level,
+    learning_style,
+):
+    profile = (
+        db.query(StudentProfile)
+        .filter(StudentProfile.user_id == user_id)
+        .first()
     )
-    db.add(profile)
+
+    if profile:
+        profile.target_score = target_score
+        profile.current_score = current_score
+        profile.exam_date = exam_date
+        profile.study_time_daily = study_time_daily
+        profile.confidence_level = confidence_level
+        profile.learning_style = learning_style
+    else:
+        profile = StudentProfile(
+            user_id=user_id,
+            target_score=target_score,
+            current_score=current_score,
+            exam_date=exam_date,
+            study_time_daily=study_time_daily,
+            confidence_level=confidence_level,
+            learning_style=learning_style,
+        )
+
+        db.add(profile)
+
     db.commit()
     db.refresh(profile)
+
     return profile
 
 

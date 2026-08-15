@@ -21,7 +21,7 @@ from app.utils.errors import SessionError, ValidationAPIError
 # Small, fixed practice set per mission — mirrors assessment_service's
 # DIAGNOSTIC_QUESTION_COUNT approach: a hackathon MVP doesn't need
 # adaptive session length yet, just a short focused set.
-SESSION_QUESTION_COUNT = 3
+SESSION_QUESTION_COUNT = 20
 
 
 def _pick_session_questions(db: Session, topic: str | None) -> list[Question]:
