@@ -38,7 +38,7 @@ from ai_agents.agents.planning_agent import PlanningAgent
 from ai_agents.agents.reflection_agent import ReflectionAgent
 from ai_agents.config import load_config
 from ai_agents.context import build_context
-from ai_agents.llm.client import GeminiClient, build_llm_client
+from ai_agents.llm.client import GroqClient, build_llm_client
 from ai_agents.logging import log_decision
 from ai_agents.schemas import (
     AnalyticsResult,
@@ -51,7 +51,7 @@ from ai_agents.schemas import (
 
 
 class AgentOrchestrator:
-    def __init__(self, llm_client: GeminiClient | None = None, database_url: str | None = None) -> None:
+    def __init__(self, llm_client: GroqClient | None = None, database_url: str | None = None) -> None:
         self.llm_client = llm_client
         self.database_url = database_url
 
@@ -64,7 +64,7 @@ class AgentOrchestrator:
 
     @classmethod
     def from_env(cls, database_url: str | None = None) -> "AgentOrchestrator":
-        """Builds an orchestrator using `AI_API_KEY`/`GOOGLE_API_KEY` from
+        """Builds an orchestrator using `AI_API_KEY`/`GROQ_API_KEY` from
         the environment if present (Deployment_architecture.txt §5), or a
         fully deterministic one (zero LLM calls, zero network) if not.
         Safe to call with no key configured at all — every agent degrades

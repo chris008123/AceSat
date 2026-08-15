@@ -17,13 +17,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from ai_agents.llm.client import GeminiClient
+from ai_agents.llm.client import GroqClient
 
 
 class BaseAgent:
     name: str = "Agent"
 
-    def __init__(self, llm_client: GeminiClient | None = None) -> None:
+    def __init__(self, llm_client: GroqClient | None = None) -> None:
         self.llm_client = llm_client
 
     def _try_llm(self, system_prompt: str, user_prompt: str) -> dict[str, Any] | None:
