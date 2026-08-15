@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import CoachMark from "@/components/ui/CoachMark";
 
 interface ChatTurn {
   from: "student" | "coach";
@@ -66,14 +67,9 @@ export default function CoachPage() {
   }
 
   return (
-    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper">
+    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper page-enter">
       <div className="flex items-center gap-2.5 border-b border-line bg-paper-raised px-4.5 pt-4.5 pb-3.5">
-        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-ink">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} className="h-[17px] w-[17px]">
-            <path d="M12 3l2.6 5.6L21 9.3l-4.5 4.1L17.6 20 12 16.8 6.4 20l1.1-6.6L3 9.3l6.4-.7z" />
-          </svg>
-          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-paper-raised bg-primary" />
-        </div>
+        <CoachMark size={40} showPulse />
         <div className="leading-tight">
           <h1 className="font-display text-[15px] font-semibold">Your Coach</h1>
           <p className="text-[11px] text-ink-soft">Reviewing today&apos;s session</p>
@@ -115,20 +111,7 @@ export default function CoachPage() {
           )
         )}
 
-        {typing && (
-          <div className="flex max-w-[88%] gap-2.5">
-            <CoachAvatar />
-            <div className="flex items-center gap-1 rounded-[14px] rounded-tl-[3px] border border-line bg-paper-raised px-4 py-3.5">
-              {[0, 1, 2].map((i) => (
-                <span
-                  key={i}
-                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-soft"
-                  style={{ animationDelay: `${i * 0.15}s` }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        {typing && <ThinkingBubble />}
       </div>
 
       <div className="border-t border-line bg-paper-raised px-3.5 pt-3 pb-[calc(0.9rem+env(safe-area-inset-bottom))]">
@@ -169,11 +152,45 @@ export default function CoachPage() {
 }
 
 function CoachAvatar() {
+  return <CoachMark size={24} animated={false} className="mt-0.5 shrink-0" />;
+}
+
+const THINKING_PHRASES = [
+  "Reviewing your last session…",
+  "Checking for patterns…",
+  "Comparing against your goal…",
+];
+
+/** Cycles short reasoning phrases instead of a generic "…" indicator —
+ * reinforces that the coach is doing agent-style analysis, not just
+ * generating text (see Prompt_strategy.txt / "not a chatbot" framing). */
+function ThinkingBubble() {
+  const [phraseIndex, setPhraseIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPhraseIndex((i) => (i + 1) % THINKING_PHRASES.length);
+    }, 900);
+    return () => clearInterval(id);
+  }, []);
+
   return (
-    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-ink">
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth={2} className="h-[11px] w-[11px]">
-        <path d="M12 3l2.6 5.6L21 9.3l-4.5 4.1L17.6 20 12 16.8 6.4 20l1.1-6.6L3 9.3l6.4-.7z" />
-      </svg>
+    <div className="flex max-w-[88%] gap-2.5">
+      <CoachMark size={24} className="mt-0.5 shrink-0" />
+      <div className="flex items-center gap-2 rounded-[14px] rounded-tl-[3px] border border-line bg-paper-raised px-4 py-3.5">
+        <span className="text-[12.5px] text-ink-soft transition-opacity duration-200">
+          {THINKING_PHRASES[phraseIndex]}
+        </span>
+        <span className="flex gap-1">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
+        </span>
+      </div>
     </div>
   );
 }

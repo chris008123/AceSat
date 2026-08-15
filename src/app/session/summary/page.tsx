@@ -17,7 +17,7 @@ function SessionSummaryContent() {
   const isGoodOutcome = accuracy >= 60;
 
   return (
-    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper">
+    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper page-enter">
       <div className="flex flex-1 flex-col items-center overflow-y-auto px-5.5 pt-7.5 pb-5 text-center">
         <StatRing percent={accuracy} label="accuracy" />
 

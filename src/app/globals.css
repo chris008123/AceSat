@@ -128,6 +128,63 @@ html, body{
   width: fit-content;
 }
 
+/* ---------------- feedback icon: draw-in + pop ---------------- */
+.icon-pop{
+  animation: icon-pop .3s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes icon-pop{
+  from { transform: scale(.4); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.check-draw{
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: check-draw .35s ease .12s forwards;
+}
+@keyframes check-draw{
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce){
+  .icon-pop, .check-draw{ animation: none; stroke-dashoffset: 0; opacity: 1; transform: none; }
+}
+
+/* ---------------- full-screen route fade-in ---------------- */
+/* Applied to standalone flow screens (onboarding/assessment/session/coach/etc.)
+   that don't share the (app) shell's Framer Motion template. Pure CSS so it
+   costs nothing and needs no JSX restructuring. */
+.page-enter{
+  animation: page-enter .22s cubic-bezier(.32,.72,0,1) both;
+}
+@keyframes page-enter{
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce){
+  .page-enter{ animation: none; }
+}
+
+/* ---------------- skeleton shimmer ---------------- */
+.skeleton{
+  position: relative;
+  overflow: hidden;
+  background: var(--line);
+  border-radius: var(--radius-sm);
+}
+.skeleton::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce){
+  .skeleton::after{ animation: none; }
+}
+@keyframes skeleton-shimmer{
+  100% { transform: translateX(100%); }
+}
+
 .pill-mono{
   font-family: var(--font-plex-mono), monospace;
   font-size: 11px;

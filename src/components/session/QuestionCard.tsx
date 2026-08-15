@@ -87,13 +87,14 @@ export default function QuestionCard({
       >
         <div className="mb-2.5 flex items-center gap-2.5">
           <div
-            className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-white ${
+            key={submitted ? "shown" : "hidden"}
+            className={`icon-pop flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-white ${
               isCorrect ? "bg-primary" : "bg-warm"
             }`}
           >
             {isCorrect ? (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-[15px] w-[15px]">
-                <path d="M5 13l4 4L19 7" />
+                <path className="check-draw" d="M5 13l4 4L19 7" />
               </svg>
             ) : (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-[15px] w-[15px]">

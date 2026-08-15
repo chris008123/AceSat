@@ -42,7 +42,7 @@ export default function DiagnosisPage() {
     : [];
 
   return (
-    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper">
+    <div className="mx-auto flex h-dvh max-w-md flex-col bg-paper page-enter">
       <div className="flex flex-1 flex-col overflow-y-auto px-6 pt-8 pb-5">
         <div className="flex flex-1 flex-col items-center text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-ink">
