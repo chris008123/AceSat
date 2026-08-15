@@ -61,9 +61,11 @@ Every agent's `run()` method:
 1. Builds a prompt from `prompts/<agent>.py` (Prompt_strategy.txt's
    `System Identity + Role + Context + Task + Rules + Output Format`
    structure) and a `StudentContext` built via `context.py`.
-2. Tries a real Gemini call (`llm/client.py`) if `AI_API_KEY` /
-   `GOOGLE_API_KEY` is configured — Technology_Stack.txt's stack pick,
-   Gemini 2.5 Flash, structured JSON output.
+2. Tries a real Groq call (`llm/client.py`) if `AI_API_KEY` /
+   `GROQ_API_KEY` is configured — fast Llama 3.3 70B inference over Groq's
+   OpenAI-compatible chat completions API, JSON mode for structured
+   output. (Originally Gemini 2.5 Flash per Technology_Stack.txt's stack
+   pick — see "Why Groq" below for why that changed.)
 3. On **any** failure — no key configured, package not installed, network
    error, malformed JSON, schema validation failure — silently falls back
    to a deterministic path built on `ai-data`'s already-tested analysis
@@ -79,10 +81,25 @@ which path produced it (useful for debugging, not part of any
 `Api_design.txt` response contract).
 
 **Practical consequence for anyone running this without an API key**: the
-product still works completely. Set `AI_API_KEY` (or `GOOGLE_API_KEY`) and
+product still works completely. Set `AI_API_KEY` (or `GROQ_API_KEY`) and
 install the `llm` extra (`pip install -e .[llm]`) to turn on real model
 calls; everything functions identically, just with LLM-generated
 reasoning instead of rule-based reasoning, without any code changes.
+
+## Why Groq (not Gemini)
+
+The package originally called Google Gemini, matching
+`Technology_Stack.txt`'s AI stack pick. It now calls Groq instead —
+Groq's LPU-based inference is materially faster for the short,
+latency-sensitive calls this package makes (a diagnosis or a coaching
+turn shouldn't feel like it's "thinking" for seconds), its free tier is
+generous enough for hackathon-scale demo traffic, and its chat completions
+API is OpenAI-compatible, which keeps `llm/client.py` simple. The
+`generate_json(system_prompt, user_prompt) -> dict` interface every agent
+calls through didn't change, so this was a one-file swap (`llm/client.py`
++ `config.py`'s default model name) — the same property that would let a
+future swap to PydanticAI (see below) or back to Gemini be equally
+contained.
 
 ## Why not PydanticAI, despite `Technology_Stack.txt` naming it
 
@@ -113,14 +130,14 @@ take down a diagnosis, plan, or coaching response.
 
 ```
 ai_agents/
-├── config.py          # AI_API_KEY / GOOGLE_API_KEY from env
+├── config.py          # AI_API_KEY / GROQ_API_KEY from env
 ├── context.py          # builds StudentContext from Student + QuestionResponse
 ├── errors.py           # NoTeachingMaterialError
 ├── logging.py          # writes AILogRecord to ai-data's ai_logs table
 ├── orchestrator.py      # AgentOrchestrator — the integration point
 ├── schemas.py           # structured outputs every agent returns
 ├── llm/
-│   └── client.py        # Gemini wrapper; None/LLMUnavailable on any failure
+│   └── client.py        # Groq wrapper; None/LLMUnavailable on any failure
 ├── prompts/              # one module per agent, Prompt_strategy.txt-shaped
 │   ├── base.py
 │   ├── diagnostic.py
