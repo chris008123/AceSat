@@ -1,5 +1,6 @@
-"""Thin wrapper around Google Gemini (Technology_Stack.txt: "Google Gemini
-2.5 Flash" + "Structured JSON outputs"). Deliberately NOT built on
+"""Thin wrapper around Groq (fast Llama inference via an OpenAI-compatible
+chat completions API — see ai-agents/README.md's "Why Groq" note for why
+this replaced the original Gemini pick). Deliberately NOT built on
 PydanticAI despite Technology_Stack.txt naming it as the intended
 multi-agent framework — pulling in a framework dependency that can't be
 installed/verified in this environment would make the whole package
@@ -20,9 +21,9 @@ import json
 from typing import Any
 
 try:  # pragma: no cover - exercised only when the package is installed
-    import google.generativeai as genai
+    from groq import Groq
 except ImportError:  # pragma: no cover - the expected path in this environment
-    genai = None
+    Groq = None
 
 from ai_agents.config import AgentConfig, load_config
 
@@ -34,34 +35,41 @@ class LLMUnavailable(RuntimeError):
     """
 
 
-class GeminiClient:
+class GroqClient:
     def __init__(self, api_key: str | None, model_name: str) -> None:
-        if genai is None:
-            raise LLMUnavailable("google-generativeai is not installed")
+        if Groq is None:
+            raise LLMUnavailable("groq is not installed")
         if not api_key:
-            raise LLMUnavailable("no AI_API_KEY/GOOGLE_API_KEY configured")
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(model_name)
+            raise LLMUnavailable("no AI_API_KEY/GROQ_API_KEY configured")
+        self._client = Groq(api_key=api_key)
+        self._model_name = model_name
 
     def generate_json(self, system_prompt: str, user_prompt: str) -> dict[str, Any]:
         """Sends the two-part prompt (role/system instructions + task
         payload — matches the `System Identity + Role Definition + ...`
-        structure in Prompt_strategy.txt §3) and parses the response as
-        JSON. Any exception anywhere in this path — API error, timeout,
+        structure in Prompt_strategy.txt §3) as a standard chat-completion
+        message pair and parses the response as JSON. `response_format`
+        puts the model in JSON mode — Groq's OpenAI-compatible equivalent
+        of the `response_mime_type` setting the old Gemini client used.
+        Any exception anywhere in this path — API error, timeout,
         non-JSON response — becomes `LLMUnavailable` so callers only ever
         need to catch one thing.
         """
         try:
-            response = self._model.generate_content(
-                [system_prompt, user_prompt],
-                generation_config={"response_mime_type": "application/json"},
+            completion = self._client.chat.completions.create(
+                model=self._model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
             )
-            return json.loads(response.text)
+            return json.loads(completion.choices[0].message.content)
         except Exception as exc:  # noqa: BLE001 - intentionally broad, see docstring
             raise LLMUnavailable(str(exc)) from exc
 
 
-def build_llm_client(config: AgentConfig | None = None) -> GeminiClient | None:
+def build_llm_client(config: AgentConfig | None = None) -> GroqClient | None:
     """Returns `None` (not a raised exception) when the LLM path isn't
     available for any reason — the one place that decision gets made, so
     every agent and the orchestrator can just check "do I have a client"
@@ -71,6 +79,6 @@ def build_llm_client(config: AgentConfig | None = None) -> GeminiClient | None:
     if not config.enabled:
         return None
     try:
-        return GeminiClient(api_key=config.api_key, model_name=config.model_name)
+        return GroqClient(api_key=config.api_key, model_name=config.model_name)
     except LLMUnavailable:
         return None
