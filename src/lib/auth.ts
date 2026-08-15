@@ -56,27 +56,18 @@ function randomCredentials(): { email: string; password: string } {
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function registerAndLogin(email: string, password: string): Promise<string> {
-  console.log("AUTH DEBUG:", {
-    API_URL,
-    email,
-    passwordLength: password.length,
-  });
-
   const registerRes = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-
-  console.log("REGISTER:", registerRes.status, await registerRes.clone().text());
+  void registerRes; // registration may 409 if this device already has an account — that's fine, login below is what matters
 
   const loginRes = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-
-  console.log("LOGIN:", loginRes.status, await loginRes.clone().text());
 
   if (!loginRes.ok) {
     throw new Error(`Login failed (${loginRes.status})`);
