@@ -1,15 +1,23 @@
 """AI bridge — Phase 3 (`Development_roadmap.txt`'s "AI Integration").
 
-As flagged in the README: real agent orchestration is the AI Agent
-Engineer's role, not Backend's. Until that exists, this module calls
-straight into `ai-data`'s services and shapes the result into the
-`Api_design.txt` §8 response contracts, so `/ai/*` routes work end-to-end
-today. Swap the internals of these three functions for real agent calls
-later — the route layer and response schemas don't need to change.
+This used to call straight into `ai-data`'s services as a stand-in for
+real agent orchestration (see git history / `ai-agents/README.md` for the
+full story). It now delegates to `ai_agents.orchestrator.AgentOrchestrator`
+— the AI Agent Engineer's actual multi-agent implementation — while
+keeping the exact same function signatures and `Api_design.txt` §8
+response contracts, so the route layer (`app/api/routes/ai.py`) and the
+frontend didn't need to change.
+
+This module's remaining job is exactly the boundary-crossing work it
+always did: build `ai_data.models.assessment.QuestionResponse` /
+`ai_data.models.student.Student` objects from this backend's own
+`Answer`/`Question`/`StudentProfile` rows, hand them to the orchestrator,
+and translate the structured result back into `app/schemas/ai.py` shapes.
 """
 
 from __future__ import annotations
 
+from functools import lru_cache
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -18,12 +26,17 @@ from ai_data.models.assessment import QuestionResponse as AIQuestionResponse
 from ai_data.models.enums import ConfidenceLevel as AIConfidenceLevel
 from ai_data.models.enums import DifficultyLevel as AIDifficultyLevel
 from ai_data.models.enums import Subject as AISubject
-from ai_data.knowledge.loader import get_concepts_for_topic
-from ai_data.services.performance_analyzer import identify_strong_topics, identify_weak_topics
-from ai_data.services.recommendation_context import generate_topic_recommendations
+from ai_data.models.student import Student as AIStudent
 
+from ai_agents.config import AgentConfig
+from ai_agents.errors import NoTeachingMaterialError
+from ai_agents.llm.client import build_llm_client
+from ai_agents.orchestrator import AgentOrchestrator
+
+from app.config.settings import settings
 from app.models.assessment import Answer
 from app.models.question import Question
+from app.models.student import StudentProfile
 from app.models.study_plan import StudyPlan
 from app.schemas.ai import CoachResponse, DiagnoseResponse, StudyPlanItem, StudyPlanResponse
 from app.utils.errors import NotFoundError, ValidationAPIError
@@ -47,6 +60,56 @@ def _to_ai_subject(subject: str) -> AISubject:
         # question bank miscategorized as e.g. "verbal" shouldn't break
         # the whole diagnosis.
         return AISubject.READING
+
+
+@lru_cache
+def _get_llm_client():
+    """Cached because building it is the part worth not repeating on every
+    request (config read + client construction) — `AI_API_KEY` doesn't
+    change during a process's lifetime in practice, same assumption
+    `config/settings.py`'s own `@lru_cache`d `get_settings()` already
+    makes. Reads from `settings` (not raw `os.environ`) so it respects
+    `.env`-file configuration the same way every other backend setting
+    does — `ai_agents.config.load_config()`'s own env-var reading is for
+    standalone/`ai-agents`-only use, not for this backend.
+    """
+    config = AgentConfig(api_key=settings.ai_api_key, enabled=bool(settings.ai_api_key))
+    return build_llm_client(config)
+
+
+def _get_orchestrator() -> AgentOrchestrator:
+    """Built fresh per call (cheap — just wiring, no I/O) rather than also
+    cached, deliberately: unlike the API key, `settings.database_url` is
+    monkeypatched per-test in `app/tests/conftest.py`'s `client` fixture,
+    and reading it live here (like `memory_bridge.py` already does) is
+    what makes decision logging land in the same database the rest of a
+    given test/request is using, instead of freezing onto whichever
+    database happened to be active the first time this was ever called.
+    """
+    return AgentOrchestrator(llm_client=_get_llm_client(), database_url=settings.database_url)
+
+
+def _to_ai_student(profile: StudentProfile) -> AIStudent:
+    return AIStudent(
+        student_id=profile.id,
+        target_score=profile.target_score,
+        current_score=profile.current_score,
+        exam_date=profile.exam_date,
+        study_time_daily_minutes=profile.study_time_daily,
+        confidence_level=profile.confidence_level,
+        learning_style=profile.learning_style,
+    )
+
+
+def _student_profile_row(db: Session, student_id: UUID) -> StudentProfile:
+    profile = db.query(StudentProfile).filter_by(id=student_id).first()
+    if profile is None:
+        # Shouldn't happen in practice — every caller already resolved
+        # `student_id` from `student_service.get_profile`, which would
+        # have 404'd first. Guarding here anyway rather than letting
+        # `_to_ai_student` blow up on `None`.
+        raise NotFoundError("Student profile not found")
+    return profile
 
 
 def _student_responses(db: Session, student_id: UUID) -> list[AIQuestionResponse]:
@@ -86,15 +149,14 @@ def diagnose(db: Session, student_id: UUID) -> DiagnoseResponse:
     if not responses:
         raise ValidationAPIError("No answered questions yet — complete an assessment first")
 
-    weak = identify_weak_topics(responses)
-    strong = identify_strong_topics(responses)
-    recommendations = generate_topic_recommendations(responses, max_recommendations=1)
+    student = _to_ai_student(_student_profile_row(db, student_id))
+    result = _get_orchestrator().diagnose(student, responses)
 
-    recommendation_text = (
-        recommendations[0].reason if recommendations else "Keep practicing across all topics evenly."
+    return DiagnoseResponse(
+        weaknesses=result.weaknesses,
+        strengths=result.strengths,
+        recommendation=result.recommendation,
     )
-
-    return DiagnoseResponse(weaknesses=weak, strengths=strong, recommendation=recommendation_text)
 
 
 def generate_study_plan(db: Session, student_id: UUID) -> StudyPlanResponse:
@@ -102,22 +164,14 @@ def generate_study_plan(db: Session, student_id: UUID) -> StudyPlanResponse:
     if not responses:
         raise ValidationAPIError("No answered questions yet — complete an assessment first")
 
-    recommendations = generate_topic_recommendations(responses)
-    if not recommendations:
+    student = _to_ai_student(_student_profile_row(db, student_id))
+    result = _get_orchestrator().plan(student, responses)
+    if not result.items:
         raise ValidationAPIError("Not enough data yet to build a study plan — keep practicing")
 
-    # Simple time allocation: higher-priority (lower `priority` number)
-    # recommendations get more minutes. Real scheduling against
-    # `StudentProfile.study_time_daily` is a reasonable next refinement,
-    # not attempted here to avoid overbuilding past the MVP.
-    minutes_by_priority = {1: 20, 2: 15, 3: 10, 4: 5, 5: 5}
     items = [
-        StudyPlanItem(
-            topic=rec.topic or "General Review",
-            time=f"{minutes_by_priority.get(rec.priority, 10)} minutes",
-            reason=rec.reason,
-        )
-        for rec in recommendations
+        StudyPlanItem(topic=item.topic, time=f"{item.duration_minutes} minutes", reason=item.reason)
+        for item in result.items
     ]
 
     plan_row = StudyPlan(
@@ -132,45 +186,30 @@ def generate_study_plan(db: Session, student_id: UUID) -> StudyPlanResponse:
 
 
 def coach(db: Session, student_id: UUID, question: str) -> CoachResponse:
-    """Placeholder Coaching Agent behavior: looks up the student's current
-    weakest topic and returns its stored explanation + a worked-example
-    prompt as a follow-up question, in the Socratic style
-    Prompt_strategy.txt §8 asks for ("guide, don't just answer"). This is
-    NOT a real LLM-backed coach — it's a deterministic stand-in so the
-    `/ai/coach` endpoint returns something coherent until the AI Agent
-    Engineer's real Coaching Agent exists.
+    """Delegates to the Coaching Agent (`ai_agents.agents.coaching_agent`),
+    which follows the Explain/Guide/Practice/Confirm framework
+    (Prompt_strategy.txt §8: "guide, don't just answer") whether or not an
+    LLM is configured — see `ai-agents/README.md` for the LLM-first,
+    deterministic-fallback design.
     """
     responses = _student_responses(db, student_id)
-    weak_topics = identify_weak_topics(responses) if responses else []
+    student = _to_ai_student(_student_profile_row(db, student_id))
 
-    if not weak_topics:
-        return CoachResponse(
-            explanation=(
-                "I don't have enough practice history yet to tailor this — "
-                "try a few more questions first, or ask about a specific topic."
-            ),
-            next_question=None,
-        )
+    try:
+        result = _get_orchestrator().coach(student, responses, question)
+    except NoTeachingMaterialError as exc:
+        raise NotFoundError(f"No teaching material found for {exc.topic!r} yet") from exc
 
-    topic = weak_topics[0]
-    concepts = get_concepts_for_topic(topic)
-    if not concepts:
-        raise NotFoundError(f"No teaching material found for {topic!r} yet")
-
-    concept = concepts[0]
-    next_question = concept.examples[0].prompt if concept.examples else None
-    return CoachResponse(explanation=concept.explanation, next_question=next_question)
+    return CoachResponse(explanation=result.explanation, next_question=result.next_question)
 
 
 def suggest_mission_topic(db: Session, student_id: UUID) -> str | None:
     """Used by `session_service.start_session` to give a learning session
     a meaningful `mission` label (Api_design.txt §9's
     `"mission": "Reading inference practice"` example) instead of a
-    generic placeholder. Returns None if there isn't enough answer history
-    yet to name a weak topic — callers fall back to a generic mission.
+    generic placeholder. Delegates to the Planning Agent's weak-topic
+    priority; returns None if there isn't enough answer history yet,
+    callers fall back to a generic mission.
     """
     responses = _student_responses(db, student_id)
-    if not responses:
-        return None
-    weak_topics = identify_weak_topics(responses)
-    return weak_topics[0] if weak_topics else None
+    return _get_orchestrator().suggest_mission_topic(responses)
