@@ -1,23 +1,23 @@
 [project]
 name = "ai-agents"
 version = "0.1.0"
-description = "AceMentor AI — AI Agent Engineer module (agent contracts, prompts, orchestration)"
+description = "AceMentor AI — AI Agent Engineering module (agent orchestration)"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.6",
-    "groq>=0.11",
+    # ai-data is NOT listed here for the same reason backend/pyproject.toml
+    # doesn't list it: pip requires an absolute file:// URI for a local
+    # path dependency inside pyproject.toml. Install it as an explicit
+    # separate step instead — see "Running locally" in README.md.
 ]
 
-# ai-data is NOT listed as a dependency above, same reasoning as
-# backend/pyproject.toml: pip requires an absolute file:// URI for a local
-# path dependency, which breaks portability across machines/clones. Install
-# it as a separate explicit step instead — see "Running tests" in README.md.
-
 [project.optional-dependencies]
+# Only needed for the real LLM path (Technology_Stack.txt: Google Gemini
+# 2.5 Flash). Every agent has a deterministic fallback and imports this
+# lazily/guarded (see ai_agents/llm/client.py), so the package works
+# without it — this extra exists for whoever wants the LLM path live.
+llm = ["google-generativeai>=0.7"]
 dev = ["pytest>=8.0"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-
-[tool.setuptools.packages.find]
-include = ["ai_agents*"]
