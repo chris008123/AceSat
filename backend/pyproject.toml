@@ -21,13 +21,13 @@ dependencies = [
     "psycopg2-binary>=2.9",
 ]
 
-# ai-data is NOT listed as a dependency above on purpose: pip requires an
-# ABSOLUTE file:// URI for a local package reference inside pyproject.toml
-# (a relative one like "file://../ai-data" fails with "non-local file URIs
-# are not supported" — this bit us once already). Install it as a
-# separate, explicit step instead — see "Running locally" below — which
-# also means the same pyproject.toml works regardless of where the
-# monorepo happens to be cloned on disk.
+# ai-data and ai-agents are NOT listed as dependencies above on purpose:
+# pip requires an ABSOLUTE file:// URI for a local package reference
+# inside pyproject.toml (a relative one like "file://../ai-data" fails
+# with "non-local file URIs are not supported" — this bit us once
+# already). Install both as separate, explicit steps instead — see
+# "Running locally" below — which also means the same pyproject.toml
+# works regardless of where the monorepo happens to be cloned on disk.
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "httpx>=0.27"]

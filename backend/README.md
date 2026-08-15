@@ -3,13 +3,14 @@
 FastAPI backend for AceMentor AI, per `Backend_architecture.txt`,
 `Database_design.txt`, and `Api_design.txt`.
 
-## Relationship to `ai-data`
+## Relationship to `ai-data` and `ai-agents`
 
-This package **depends on** `ai-data` (installed as a local editable
-dependency — see `pyproject.toml`); `ai-data` never imports from here.
-Both packages assume they sit as sibling directories in one monorepo
-(matches `Deployment_architecture.txt` §7's repo layout:
-`backend/`, `ai-agents/`, etc. as top-level folders).
+This package **depends on** `ai-data` and `ai-agents` (both installed as
+local editable dependencies — see `pyproject.toml`); neither of those
+packages imports from here. All three assume they sit as sibling
+directories in one monorepo (matches `Deployment_architecture.txt` §7's
+repo layout: `backend/`, `ai-agents/`, `ai-data/`, etc. as top-level
+folders).
 
 **Table ownership** (see `ai-data/README.md` for the full boundary note):
 - **This backend owns**: `users`, `student_profiles`, `questions`,
@@ -23,19 +24,22 @@ Both packages assume they sit as sibling directories in one monorepo
   the initial migration — verified via a real Alembic CLI run to produce
   all 12 tables).
 
-## Agent orchestration — a placeholder, not the real thing
+## Agent orchestration
 
 `Team_assignments.txt`'s 6-role split makes agent orchestration the **AI
 Agent Engineer's** job, not Backend's — even though
 `Backend_architecture.txt`'s folder structure sketches an `agents/`
 folder here, and `Api_design.txt` has `/ai/diagnose`, `/ai/study-plan`,
-`/ai/coach` endpoints. Until that role is staffed, the `ai` route (Phase
-2+) will call directly into `ai-data`'s services
-(`generate_student_profile`, `identify_weak_topics`,
-`generate_topic_recommendations`) as a stand-in, clearly marked as
-simplified. The API contract in `Api_design.txt` stays the same either
-way, so swapping in real agent orchestration later shouldn't require
-frontend changes.
+`/ai/coach` endpoints. That role is now staffed: `app/services/
+ai_bridge.py` delegates to `ai_agents.orchestrator.AgentOrchestrator`
+(see `ai-agents/README.md` for the full design — six specialized agents,
+LLM-first with a deterministic fallback so the product works with zero
+API credentials). This backend's job in that flow is unchanged from
+before: translate its own `Answer`/`Question`/`StudentProfile` rows into
+`ai-data`'s shapes, hand them to the orchestrator, translate the result
+back into `Api_design.txt`'s response contracts. The API contract itself
+never changed, so this swap required zero frontend changes and zero route
+changes — only `ai_bridge.py`'s internals moved.
 
 ## Status
 
@@ -66,16 +70,19 @@ frontend changes.
 - `get_current_user` bearer-token dependency (`app/api/dependencies.py`)
   used by every protected route.
 
-**Phase 3 (AI Integration, via the ai-data bridge) — done.**
+**Phase 3 (AI Integration, via real agent orchestration) — done.**
 - `app/services/ai_bridge.py` translates this backend's `Answer`/
-  `Question` rows into `ai-data`'s `QuestionResponse` models and calls
-  straight into `ai-data`'s `identify_weak_topics`,
-  `identify_strong_topics`, `generate_topic_recommendations`, and
-  `ai_data.knowledge` — the stand-in described above.
+  `Question`/`StudentProfile` rows into `ai-data`'s `QuestionResponse`/
+  `Student` models and hands them to `ai_agents.orchestrator.
+  AgentOrchestrator` — see "Agent orchestration" above and
+  `ai-agents/README.md`.
 - `POST /ai/diagnose`, `POST /ai/study-plan` (persists to the new
-  `StudyPlan`/`study_plans` table), `POST /ai/coach` (a deterministic
-  stand-in — pulls the student's weakest topic's stored explanation, not
-  an LLM-backed coach).
+  `StudyPlan`/`study_plans` table), `POST /ai/coach` all now run through
+  the Diagnostic/Planning/Coaching Agents respectively. Every agent tries
+  a real LLM call when `AI_API_KEY` is configured and falls back to
+  evidence-based rule logic when it isn't (or when the call fails) — so
+  these endpoints return the exact same shapes with or without an API
+  key.
 
 **Phase 4 (Sessions, Progress, Memory) — done.**
 - `LearningSession`/`ProgressRecord` models (`app/models/learning_session.py`,
@@ -131,14 +138,9 @@ the steps below are what to run against the real one.
 **Steps:**
 
 1. In your Supabase project dashboard, go to Project Settings → Database
-   → Connection pooling → Session mode, and copy that connection string
-   — **use the pooler, not the direct connection**. Supabase's direct
-   hostname (`db.[ref].supabase.co`) is IPv6-only unless you've paid for
-   the IPv4 add-on, and fails to resolve entirely
-   (`could not translate host name`) on networks that don't route IPv6
-   properly. The pooler hostname is IPv4-compatible and sidesteps this.
-   See `.env.example` for the exact format — note the username changes to
-   `postgres.[PROJECT-REF]`, not just `postgres`.
+   and copy the connection string (direct connection is simplest for a
+   hackathon; use the pooler if you expect many concurrent short-lived
+   connections — see `.env.example` for both formats and the SSL note).
 2. Set `DATABASE_URL` in your `.env` (or real environment) to that string,
    and set `ENVIRONMENT=production` — `development` mode calls
    `init_db()`/`create_all()` directly on startup, which you don't want
@@ -160,17 +162,24 @@ the steps below are what to run against the real one.
 Note: `ai-data`'s own `models/db.py` has its own SQLite-fallback engine
 for standalone use — in production, `app/services/ai_bridge.py` and
 `memory_bridge.py` both pass this backend's `settings.database_url`
-explicitly into ai-data's session calls, so everything actually lands in
-the same Supabase database rather than ai-data's local fallback file.
+explicitly into ai-data's session calls (`ai_bridge.py` does this via
+`ai_agents.orchestrator.AgentOrchestrator`'s `database_url` param, used
+for `ai_logs` decision logging), so everything actually lands in the same
+Supabase database rather than ai-data's local fallback file.
 
 ## Running locally
 
 ```bash
 pip install -e ../ai-data
+pip install -e ../ai-agents
 pip install -e .[dev]
 cp .env.example .env   # defaults to a local SQLite file if DATABASE_URL unset
 uvicorn app.main:app --reload
 ```
+
+Set `AI_API_KEY` in `.env` to turn on real Gemini-backed agent reasoning
+for `/ai/*`; leave it unset and everything still works end-to-end on the
+deterministic fallback path described in `ai-agents/README.md`.
 
 **On Windows**, run these as separate commands (not pasted as one block —
 PowerShell can silently swallow later lines into a `>>` continuation if a
@@ -196,33 +205,23 @@ pytest app/tests -q
   `psycopg2-binary` didn't get installed, usually because `pip install -e .`
   failed on the error above before it got that far. Fix the packaging
   error first, then reinstall.
-- **`pip install -e .` fails on the `ai-data` line specifically** (a
-  "non-local file URIs are not supported" error) — fixed as of this pass;
-  `ai-data` is no longer declared as a dependency *inside*
-  `pyproject.toml` (pip requires an absolute `file://` URI there, and a
-  relative one silently doesn't work on any platform). Install it
-  separately instead: `pip install -e ../ai-data`, then
-  `pip install -e .[dev]` for this package — same two commands as always,
-  just no longer redundant with a broken third mechanism.
+- **`pip install -e .` fails on the `ai-data`/`ai-agents` line
+  specifically** (a "non-local file URIs are not supported" error) —
+  fixed as of this pass; neither package is declared as a dependency
+  *inside* `pyproject.toml` (pip requires an absolute `file://` URI
+  there, and a relative one silently doesn't work on any platform).
+  Install both separately instead: `pip install -e ../ai-data`,
+  `pip install -e ../ai-agents`, then `pip install -e .[dev]` for this
+  package — same three commands as always, just no longer redundant with
+  a broken fourth mechanism.
+- **`ModuleNotFoundError: No module named 'ai_agents'`** — means
+  `pip install -e ../ai-agents` was skipped. `app/services/ai_bridge.py`
+  imports it directly (no lazy/optional import), so it's a hard
+  dependency for the backend to even start, not an optional extra.
 - **`uvicorn` command not found after installing** — usually a PATH
   issue with pip's user-site install (common on Windows). Use
   `python -m uvicorn app.main:app --reload` instead — always works
   regardless of PATH.
-- **`psycopg2.OperationalError: could not translate host name
-  "db.[ref].supabase.co" to address: Unknown server error`** — not a bug
-  in this project. Supabase's direct connection hostname is IPv6-only
-  unless you've paid for the IPv4 add-on; if your network doesn't route
-  IPv6 properly, that specific hostname just won't resolve. Switch to the
-  connection pooler string (Project Settings → Database → Connection
-  pooling → Session mode) — it's IPv4-compatible. Remember the username
-  changes to `postgres.[PROJECT-REF]` for the pooler, not just `postgres`.
-- **`ValueError: invalid interpolation syntax` when running `alembic
-  upgrade head`** — fixed as of this pass. Alembic's config is built on
-  Python's `configparser`, which treats `%` as a special character; a
-  Supabase password containing a URL-encoded character (commonly `%40`
-  for `@`) breaks it unless escaped. `alembic/env.py` now escapes every
-  `%` as `%%` before handing the URL to `set_main_option` — if you still
-  see this, you're on an older copy of `env.py`.
 - **`alembic upgrade head` says `Context impl SQLiteImpl` even though
   you set `DATABASE_URL` to your Supabase string** — means the app is
   still falling back to the SQLite default, so your `.env` isn't being
