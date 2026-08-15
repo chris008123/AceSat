@@ -20,3 +20,20 @@ export function getLocalName(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(NAME_KEY);
 }
+
+/**
+ * Tracks which streak milestone has already been celebrated on this
+ * device, so <StreakMilestone> only fires once per crossing rather than
+ * on every dashboard load while the streak sits at (say) 7 days.
+ */
+const MILESTONE_KEY = "acementor:lastMilestoneShown";
+
+export function getLastShownMilestone(): number {
+  if (typeof window === "undefined") return 0;
+  return Number(window.localStorage.getItem(MILESTONE_KEY) ?? 0);
+}
+
+export function setLastShownMilestone(value: number) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(MILESTONE_KEY, String(value));
+}
